@@ -1,6 +1,8 @@
 //! End-to-end tests of the guardrails around sending and the tool log, driving
 //! the real binary so that the environment variables are proved to work too.
 
+mod isolation;
+
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
@@ -28,11 +30,11 @@ const SEND_TOOLS: [&str; 4] = [
 
 fn binary(postmark: &MockServer, env: &[(&str, &str)]) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_postmark-mcp"));
+    isolation::isolate(&mut command);
     // A closed stdin ends a server that starts when it should have refused, so a
     // test fails rather than hangs.
     command
         .stdin(Stdio::null())
-        .env_clear()
         .env("POSTMARK_SERVER_TOKEN", "policy-test-token")
         .env("DEFAULT_SENDER_EMAIL", "sender@example.com")
         .env("DEFAULT_MESSAGE_STREAM", "outbound")

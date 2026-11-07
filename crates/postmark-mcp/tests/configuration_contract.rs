@@ -2,6 +2,8 @@
 //! unlike environment variables, which some hosts cannot set. Each test drives the
 //! real binary with no environment at all unless it is testing the fallback.
 
+mod isolation;
+
 use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
@@ -20,7 +22,7 @@ type TestResult = Result<(), Box<dyn Error + Send + Sync>>;
 /// The binary with an empty environment, a closed stdin, and these arguments.
 fn binary(args: &[&str]) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_postmark-mcp"));
-    command.stdin(Stdio::null()).env_clear().args(args);
+    isolation::isolate(&mut command).stdin(Stdio::null()).args(args);
     command
 }
 

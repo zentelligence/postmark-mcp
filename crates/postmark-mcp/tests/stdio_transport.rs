@@ -1,6 +1,8 @@
 //! End-to-end tests of the real binary: spawned over stdio, configured only
 //! through its environment, and talking to a local stand-in for Postmark.
 
+mod isolation;
+
 use std::error::Error;
 use std::process::Output;
 
@@ -18,8 +20,8 @@ const TOKEN: &str = "stdio-test-token";
 
 fn binary(base_url: &str) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_postmark-mcp"));
+    isolation::isolate(&mut command);
     command
-        .env_clear()
         .env("POSTMARK_SERVER_TOKEN", TOKEN)
         .env("DEFAULT_SENDER_EMAIL", "sender@example.com")
         .env("DEFAULT_MESSAGE_STREAM", "outbound")
@@ -110,10 +112,8 @@ async fn skip_verify_starts_without_contacting_postmark() -> TestResult {
 
 #[tokio::test]
 async fn refuses_to_start_with_missing_configuration() -> TestResult {
-    let output = Command::new(env!("CARGO_BIN_EXE_postmark-mcp"))
-        .env_clear()
-        .output()
-        .await?;
+    let mut command = Command::new(env!("CARGO_BIN_EXE_postmark-mcp"));
+    let output = isolation::isolate(&mut command).output().await?;
 
     assert!(!output.status.success());
     assert!(stderr(&output).contains("--server-token (or POSTMARK_SERVER_TOKEN) is not set"));

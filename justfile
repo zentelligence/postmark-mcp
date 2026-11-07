@@ -7,7 +7,7 @@ clippy:
     cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 test:
-    cargo test --workspace --all-features
+    cargo test --workspace --all-features --no-fail-fast
 
 audit:
     cargo audit
