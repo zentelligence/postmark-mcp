@@ -26,7 +26,9 @@ Every tool returns structured content. A failure is a tool result with `isError`
 | `server/invalid-request` | The request could not be built, because of a defect in this server. |
 | `invalid/argument` | An argument was refused before any request was made. |
 | `send/outcome-unknown` | A send failed in a way that leaves it unclear whether the email went out. Check with `search_outbound_messages` before resending. |
-| `policy/recipient-not-allowed` | A recipient is outside `POSTMARK_RECIPIENT_ALLOWLIST`, so nothing was sent. |
+| `policy/recipient-not-allowed` | A recipient is outside the recipient allowlist, so nothing was sent. |
+| `change/outcome-unknown` | A create or delete failed in a way that leaves it unclear whether it happened. Check before trying again. |
+| `policy/webhook-url-not-allowed` | A webhook URL is outside the webhook URL allowlist, so nothing was created. |
 
 An argument of the wrong type, an unknown argument, or a value outside a fixed list is rejected by the MCP SDK, as a tool result with `isError` set and no `code`.
 
@@ -80,7 +82,7 @@ Checks template syntax without saving anything, and reports errors by line and p
 | --- | --- |
 | `recipient`, `from_email`, `tag`, `subject` | Text filters. |
 | `status` | `queued`, `sent`, or `processed`. |
-| `message_stream` | Defaults to `DEFAULT_MESSAGE_STREAM`. |
+| `message_stream` | Defaults to the configured default stream. |
 | `from_date`, `to_date` | Date range. |
 | `count` | From 1 to 500. Defaults to 50. |
 | `offset` | Results to skip. `count` plus `offset` cannot exceed 10,000. |
@@ -99,7 +101,7 @@ Returns the raw source of a bounce, by `bounce_id`. This is what the remote serv
 
 ### `list_suppressions`
 
-Takes `message_stream`, which defaults to `DEFAULT_MESSAGE_STREAM`, plus `suppression_reason`, `origin`, `email_address`, `from_date`, and `to_date`. Postmark's API offers no paging here. The list is eventually consistent.
+Takes `message_stream`, which defaults to the configured default stream, plus `suppression_reason`, `origin`, `email_address`, `from_date`, and `to_date`. Postmark's API offers no paging here. The list is eventually consistent.
 
 ### `get_delivery_stats`
 
@@ -129,7 +131,7 @@ Investigates why an email may not have reached `recipient`, which must be one ba
 | --- | --- |
 | `recipient` | The address to investigate. |
 | `message_id` | A specific message. Cannot be combined with dates. |
-| `message_stream` | Defaults to `DEFAULT_MESSAGE_STREAM`. A given message's own stream takes precedence, and the result's `message_stream` shows which was used. |
+| `message_stream` | Defaults to the configured default stream. A given message's own stream takes precedence, and the result's `message_stream` shows which was used. |
 | `from_date`, `to_date` | Restrict the message search and the bounce history, not the suppression check. With no dates, all retained history is searched. |
 
 | Result field | Description |
@@ -181,14 +183,14 @@ This differs from the official server in several ways, all to avoid a confident 
 
 ## Sending
 
-These four tools are left out entirely when `POSTMARK_READ_ONLY` is `true`. They are annotated as not read-only and not idempotent, since calling one twice sends twice. They are not marked destructive, because in MCP's terms sending is additive: it deletes and overwrites nothing. Whether a host asks before a send is up to its own settings, which an automated deployment can set to allow the send tools outright.
+These four tools make up the `send` toolset, and are left out entirely when `--toolsets` does not include it. They are annotated as not read-only and not idempotent, since calling one twice sends twice. They are not marked destructive, because in MCP's terms sending is additive: it deletes and overwrites nothing. Whether a host asks before a send is up to its own settings, which an automated deployment can set to allow the send tools outright.
 
 Common to all four:
 
-- Every message is validated, and every recipient checked against `POSTMARK_RECIPIENT_ALLOWLIST`, before any request is made. In a batch, one problem refuses the whole batch, nothing is sent, and the failure names the message, counting from 0.
+- Every message is validated, and every recipient checked against the recipient allowlist, before any request is made. In a batch, one problem refuses the whole batch, nothing is sent, and the failure names the message, counting from 0.
 - `to`, `cc`, and `bcc` are advertised as arrays of addresses. A single address given as a string is also accepted. An address is `name@example.com` or `Name <name@example.com>`. Commas, semicolons, and quotes are refused, as are characters with meaning in an address header, such as `@`, `:`, and brackets, within a display name, because each can hide a recipient.
 - A message has at most 50 recipients across `to`, `cc`, and `bcc`. A subject is at most 2,000 characters, and a tag at most 1,000.
-- `from` defaults to `DEFAULT_SENDER_EMAIL`, and the stream is always `DEFAULT_MESSAGE_STREAM`.
+- `from` defaults to the configured default sender, and the stream is always the configured default stream.
 - Open and link tracking are not set, so the Postmark server's own settings decide. The official server always turns both on.
 - A send is never retried. If Postmark may have received it, the failure is `send/outcome-unknown`.
 
@@ -219,16 +221,46 @@ Postmark accepts or refuses each message in a batch on its own, so a batch succe
 | `unaccounted` | Messages Postmark gave no clear answer for. Treat these as unknown, and check before resending. |
 | `results` | Each answer in request order, with `index`, `to`, `error_code`, `message`, and, if accepted, `message_id` and `submitted_at`. |
 
-## Planned
+## Managing
 
+These eight tools make up the `manage` toolset, and are left out entirely when `--toolsets` does not include it. Each is annotated by the MCP specification's definitions: those that delete or overwrite are destructive, and those that create are not idempotent.
 
-| Tool | Official name | Stage |
-| --- | --- | --- |
-| `create_template` | `createTemplate` | 4 |
-| `edit_template` | `editTemplate` | 4 |
-| `delete_template` | `deleteTemplate` | 4 |
-| `activate_bounce` | `activateBounce` | 4 |
-| `create_suppressions` | `createSuppressions` | 4 |
-| `delete_suppressions` | `deleteSuppressions` | 4 |
-| `create_webhook` | `createWebhook` | 4 |
-| `delete_webhook` | `deleteWebhook` | 4 |
+| Tool | Does | Destructive | Idempotent |
+| --- | --- | --- | --- |
+| `create_template` | Creates a template. | no | no |
+| `edit_template` | Changes a template's name, subject, bodies, alias, or layout. | yes | yes |
+| `delete_template` | Deletes a template. | yes | yes |
+| `activate_bounce` | Reactivates an address a bounce deactivated. | yes | yes |
+| `create_suppressions` | Suppresses up to 50 addresses on a stream. | no | yes |
+| `delete_suppressions` | Lifts up to 50 suppressions on a stream. | yes | yes |
+| `create_webhook` | Registers a webhook. | no | no |
+| `delete_webhook` | Deletes a webhook. | yes | yes |
+
+### `create_template`
+
+Takes `name`, at least one of `html_body` and `text_body`, and optionally `subject`, `alias`, `template_type`, and `layout_template`. A standard template needs a subject, a layout must not have one, and only a standard template can use a layout. An alias uses letters, digits, `.`, `-`, and `_`, starting with a letter. Returns the template's summary.
+
+### `edit_template`
+
+Takes `template_id_or_alias` and at least one of `name`, `subject`, `html_body`, `text_body`, `alias`, and `layout_template`. Postmark's documentation does not settle whether an edit keeps the fields it leaves out, so the tool reads the template first and sends it back whole, with only the fields given changed. That is correct whichever way Postmark behaves, but a change someone else makes between the read and the write is overwritten. An empty value is refused rather than clearing a field. To stop a template using a layout, give `detach_layout: true`, which cannot be combined with `layout_template`. The official server uses `layout_template: null` for this, which this server's schemas cannot express.
+
+### `delete_template` and `delete_webhook`
+
+Take `template_id_or_alias` or `webhook_id`, and return `deleted`, the identifier as given. A refusal Postmark gives with a success status, such as for a layout still in use, is reported as `postmark/rejected`. A delete that may have happened despite failing, such as one that timed out, is `change/outcome-unknown`, since repeating it would then be refused as not found.
+
+### `activate_bounce`
+
+Takes `bounce_id`, and returns the bounce record as it now stands.
+
+### `create_suppressions` and `delete_suppressions`
+
+Take `email_addresses`, from 1 to 50 bare addresses, and `message_stream`, which defaults to the configured default stream. Postmark answers for each address, so the result has `succeeded`, `failed`, and `results`, each with `email_address`, `status`, and, on failure, `message`. Postmark refuses to lift a spam complaint.
+
+### `create_webhook`
+
+Takes `url`, which must be HTTPS with no username or password, and no encoded slash or backslash in its path, `triggers`, at least one of `Open`, `Click`, `Delivery`, `Bounce`, `SpamComplaint`, and `SubscriptionChange`, and optionally `message_stream`, which defaults to the configured default stream. The official server leaves the stream out, so Postmark uses `outbound`. If a webhook URL allowlist is set, the URL must be permitted by it. HTTP authentication and custom headers cannot be set through this tool, since no tool here ever returns them. Returns the webhook as `list_webhooks` would.
+
+### When a change fails
+
+A create or delete that fails in a way that leaves it unclear whether it happened is `change/outcome-unknown`, and its remediation names the tool to check with first. An edit, a reactivation, or a suppression change can be repeated safely, so it reports Postmark's failure as it is.
+

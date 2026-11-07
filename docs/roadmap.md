@@ -8,10 +8,10 @@ The goal is parity with the 24 tools of the official `postmark-mcp` server, deli
 - **Stage 1, read-only tools.** Ten tools across templates, messages, bounces, suppressions, stats, and webhooks.
 - **Stage 2, diagnostics.** `diagnose_delivery`, which finds the message, checks suppressions and bounces on its stream, and reports what it could not establish rather than treating it as good news.
 - **Stage 3, sending.** The four send tools, a read-only mode, a recipient allowlist, and tool call logging with address masking.
+- **Stage 4, managing.** The eight tools that change templates, suppressions, bounces, and webhooks, completing the official server's 24. With it, every setting became a command-line flag, with environment variables as a fallback, and `--toolsets` replaced the read-only switch.
 
 ## Planned
 
-- **Stage 4, mutation.** Template, bounce, suppression, and webhook changes, including `WEBHOOK_URL_ALLOWLIST`.
 - **Stage 5, beyond parity.** Candidates only: the asynchronous bulk API, account-level tools (domains, sender signatures) using `POSTMARK_ACCOUNT_TOKEN`, and streamable HTTP, which would need authentication.
 
 ## Decided
@@ -22,7 +22,9 @@ The goal is parity with the 24 tools of the official `postmark-mcp` server, deli
 - **URL paths are kept.** Credentials, query strings, and fragments are removed from webhook URLs, but paths are not, even though some services put a secret there. A path is useful for diagnosis, and a secret in one cannot be told from an ordinary path.
 
 - **No per-send confirmation.** Asking a person to approve each send, for example through MCP elicitation, was considered and rejected: the intended use is automated sending, such as email sequences before and after a workshop, where nobody is there to approve each one. Interactive hosts can still be set to ask before a send, through their own tool permissions.
-- **Sending guardrails.** `POSTMARK_READ_ONLY` removes the send tools, and `POSTMARK_RECIPIENT_ALLOWLIST` restricts recipients. Both are off by default, matching the official server, so existing host entries behave as before.
+- **Configuration by flags.** Not every host can set environment variables, so every setting is a flag, with its variable as a fallback. The token can come from a file, a variable, or a flag, the last being simplest but visible in the process list.
+- **Toolsets.** `--toolsets` chooses among `read`, `send`, and `manage`, all on by default to match the official server. Deleting and overwriting are not a separate group: they are annotated destructive, and a host's tool permissions can deny any single tool.
+- **Recipient allowlist.** `--recipient-allowlist` restricts recipients, for staging, internal-only, and demonstration deployments only.
 - **Tracking.** This server never sets open or link tracking, so each Postmark server's settings decide, unlike the official server, which always turns both on.
 - **No automatic retries.** Postmark's documentation says nothing about idempotency, so a send that may have reached it is reported as `send/outcome-unknown`, never retried.
 
@@ -41,19 +43,30 @@ On 2026-11-07, every tool was run against a real Postmark server, through the re
 - `diagnose_delivery` finds and correctly diagnoses a message just sent.
 - The token appeared nowhere in stderr, and the tool log masked addresses and reduced content to its size.
 
+At version 0.5.0, a throwaway layout and template were taken through their whole lifecycle on the same server, confirming that:
+
+- `create_template`, `get_template`, and `list_templates` handle layouts, and templates that use them.
+- `edit_template` changes only the field asked for, keeping the name, bodies, alias, layout, and type.
+- `send_email_with_template` sends, rendering the edited subject, and is reported `Delivered`.
+- `detach_layout` removes a layout and keeps everything else.
+- `delete_template` deletes, and a deleted template then reads as `postmark/rejected`.
+
 ## Verification still owed
 
 The live server had no templates, no webhooks, and only single-recipient messages, so these remain unconfirmed:
 
-- `get_template`, and the three send tools other than `send_email`.
+- `send_batch` and `send_batch_with_template`.
+- `activate_bounce`, both suppression tools, and both webhook tools, which the live server had nothing safe to exercise. `create_webhook` also needs a URL that answers Postmark's verification.
 - `MessageStream` on `list_webhooks`, where this server follows the documentation and the official server sends `messagestream`.
 - Whether `Recipients` includes Cc and Bcc addresses, and whether it ever holds display names. A recipient missing from it reads as `no_recent_message`.
 - Which fields appear in message event `Details` for events other than `Delivered` and `Bounced`, since only the allowlisted ones are returned.
 - Whether `ManualSuppression` with origin `Recipient` can be removed. The documentation mentions an authority failure without saying when it applies, so the recommendation treats it as the recipient's to reverse.
 
+## Known risks
+
+- With the `manage` toolset on and no webhook URL allowlist, an agent steered by content it has read could register a webhook that sends events, including clicked links, which can hold live tokens, to an address of the attacker's choosing. This matches the official server. Deployments that do not need to manage webhooks can leave `manage` out of `--toolsets`, or set `--webhook-url-allowlist`.
+
 ## Open decisions
 
-- **Guardrails for automated sending.** Candidates that limit what an automated run can do without a person approving each send: a mode allowing only template sends, so an agent can fill in a template but not write free text; a cap on recipients per call or per run; and a `message_stream` argument, so sequences can use a broadcast stream rather than `DEFAULT_MESSAGE_STREAM`.
-
-Beyond that, none outstanding. Stage 4 will need decisions on whether template, suppression, and webhook changes fall under `POSTMARK_READ_ONLY`, and whether deletions need a separate switch.
+- **Guardrails for automated sending.** Candidates that limit what an automated run can do without a person approving each send: a mode allowing only template sends, so an agent can fill in a template but not write free text; a cap on recipients per call or per run; and a `message_stream` argument, so sequences can use a broadcast stream rather than `DEFAULT_MESSAGE_STREAM`. 
 

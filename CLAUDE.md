@@ -13,14 +13,14 @@ Rust MCP server for the Postmark email API. Cargo workspace of library crates be
 | Completion gate | `.claude/scripts/check.sh` |
 | Rust gate only | `just ci` |
 | Targeted red/green test | `cargo test -p <crate> <test_name> -- --exact` |
-| Check configuration and token | `cargo run -p postmark-mcp -- doctor` |
+| Check configuration and token | `cargo run -p postmark-mcp -- --server-token-file <path> --default-sender <address> --default-message-stream outbound doctor` |
 | Regenerate licence report | `just licences` |
 
 ## Architecture in one screen
 
 - `postmark-mcp-core`: validated values, result types, capability ports (`ReadsTemplates` and so on, each beside its types), the composite `PostmarkGateway`, and `GatewayError`.
 - `postmark-mcp-client`: `HardenedTransport` (every request, and failure classification) and `PostmarkApi` (implements the ports, naming each route and its parameters).
-- `postmark-mcp`: environment configuration, the MCP server, `tools/*` routers, `schema.rs`, `ToolFailure`, and the binary.
+- `postmark-mcp`: configuration from flags with environment fallback (`config.rs`), the MCP server and its toolsets, `tools/*` routers, `schema.rs`, `ToolFailure`, and the binary.
 
 A tool call flows: rmcp, arguments in `tools/<area>.rs`, `TryFrom` to a validated query, a port, `PostmarkApi`, `HardenedTransport`, Postmark. A result type decodes from Postmark's `PascalCase` and serialises as `snake_case`, so one struct serves both ends. Failures return as `GatewayError` or `ValueError`, then `ToolFailure`, a tool result with `isError` set.
 
@@ -51,7 +51,9 @@ A tool call flows: rmcp, arguments in `tools/<area>.rs`, `TryFrom` to a validate
 - Result types need `#[skip_serializing_none]` above their derives. `schema.rs` removes nullability from schemas, so a `null` in a result would contradict the advertised schema.
 - A result type's top-level field cannot be called `code`, `message`, or `remediation`, because `fallible_output_schema_for` merges it with `ToolFailure`. `every_output_definition_is_used` and the type check in `success` catch this.
 - `PostmarkMcpServer` overrides `call_tool` to log every call, so `#[tool_handler]` generates only `list_tools` and `get_tool`.
-- `send_policy_contract.rs` drives the binary, because the send policy and logging come from the environment.
+- `send_policy_contract.rs` and `configuration_contract.rs` drive the binary, because policy, logging, and flags are wired in `main.rs`.
+- A new setting needs a `Setting` constant pairing its flag and variable, a field on `Settings`, and a line in `docs/configuration.md`.
+- A new tool belongs to one toolset, merged in `PostmarkMcpServer::catalogue`, and needs its annotations listed in `catalogue_contract.rs`.
 - Edit scripts must assert their patterns match, because `cargo fmt` rewraps code.
 - Wiremock's path matcher is case-sensitive, but Postmark's API is not.
 - `vocabulary!` variants must stay undocumented: a doc comment turns the advertised `enum` into a `oneOf` of consts.

@@ -13,7 +13,12 @@ export DEFAULT_SENDER_EMAIL=you@example.com  # a verified sender on that server
 python3 -I scripts/acceptance/live_probe.py "$PWD/target/debug/postmark-mcp"
 ```
 
-That run is read-only. Add `send` as a final argument to also send exactly one email, to Postmark's black hole address, `test@blackhole.postmarkapp.com`, tagged `postmark-mcp-acceptance`. It counts towards the server's sending volume.
+That run is read-only. Two optional arguments extend it:
+
+- `send` sends exactly one email, to Postmark's black hole address, `test@blackhole.postmarkapp.com`, tagged `postmark-mcp-acceptance`.
+- `templates` creates a throwaway layout and template with timestamped aliases, reads, lists, and edits them, sends one email from the template to the black hole address, detaches the layout, and deletes both. Deletion is attempted even if an earlier step fails. It prints `PASS` or `FAIL` for each check.
+
+Each email counts towards the server's sending volume.
 
 Set `ACCEPTANCE_STDERR` to a file path to keep the server's stderr, which includes the tool log, for checking by hand. Afterwards, confirm the token is absent from it without printing either:
 

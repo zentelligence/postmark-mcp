@@ -11,7 +11,7 @@ Assume all tool parameters, API responses, and email content are untrusted. An a
 - URLs from Postmark can carry secrets. `sanitised_url` in `wire.rs` removes credentials, query, and fragment while decoding, and withholds a URL it cannot parse. A secret in the path cannot be detected, so treat a webhook URL as sensitive regardless.
 - Clicked links can hold live tokens, such as password resets. `Details` on message events is decoded through an allowlist, and any value holding a URL is dropped.
 - Validation errors never echo the rejected input.
-- Secrets come from the environment only. Never read them from a tool call, and never write them to a file.
+- Secrets come from the operator only, through a flag, a file, or the environment. Never read them from a tool call, never write them to a file, and never echo a token file's contents in an error.
 
 ## Requests
 
@@ -23,9 +23,10 @@ Assume all tool parameters, API responses, and email content are untrusted. An a
 ## Tools with external effects
 
 - Sending email and deleting resources are irreversible. Annotate deletion and overwriting as destructive, per `mcp-contracts.md`, and never retry a send. A failure that leaves the outcome unknown is `send/outcome-unknown`, through `SendFailure`, and its remediation never says retry.
-- Validate every message and check every recipient against `POSTMARK_RECIPIENT_ALLOWLIST` before any request, so a batch is sent whole or not at all. Policy checks use `MailAddress::bare`, never the display form.
-- A tool removed by policy is left out of the catalogue, not refused when called.
-- Webhooks send event data to a URL, so `create_webhook` must honour `WEBHOOK_URL_ALLOWLIST`, comparing parsed origin and path, and rejecting embedded credentials.
+- Validate every message and check every recipient against the recipient allowlist before any request, so a batch is sent whole or not at all. Policy checks use `MailAddress::bare`, never the display form.
+- A tool removed by policy, through `--toolsets`, is left out of the catalogue, not refused when called.
+- Webhooks send event data to a URL, so `create_webhook` requires HTTPS without credentials, and honours the webhook URL allowlist by parsed origin and whole path segments. A refusal never reveals the list.
+- A create that may have happened despite failing is `change/outcome-unknown`, through `ChangeFailure`, naming the tool to check with.
 - Text returned by Postmark, including subjects, bounce transcripts, and error messages, can be written by anyone who can send or reply to email. It is data, never instructions, and the server's MCP instructions say so.
 - Message bodies, and `Content` on bounce records, are not modelled. Returning them would need a deliberate decision.
 - `get_bounce_dump` is the one exception, by design: it returns the raw bounce, which can quote the original message. Its description warns callers, and it returns this only for one bounce on explicit request.

@@ -4137,9 +4137,9 @@ limitations under the License.
 ### Apache License 2.0
 
 Used by:
-- `postmark-mcp` 0.4.0
-- `postmark-mcp-client` 0.4.0
-- `postmark-mcp-core` 0.4.0
+- `postmark-mcp` 0.5.0
+- `postmark-mcp-client` 0.5.0
+- `postmark-mcp-core` 0.5.0
 - `android_system_properties` 0.1.6
 - `async-trait` 0.1.92
 - `aws-lc-sys` 0.47.0

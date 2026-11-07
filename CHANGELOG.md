@@ -6,6 +6,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-07
+
+### Added
+
+- `create_template`, `edit_template`, `delete_template`, `activate_bounce`, `create_suppressions`, `delete_suppressions`, `create_webhook`, and `delete_webhook`, completing the official server's 24 tools.
+- A command-line flag for every setting, such as `--default-sender`, since not every MCP host can set environment variables. Each still falls back to its environment variable, and a flag wins over its variable.
+- `--server-token-file`, which reads the token from a file, keeping it out of the process list and the host's configuration.
+- `--toolsets`, choosing which of the `read`, `send`, and `manage` tool groups exist. All three by default.
+- `--webhook-url-allowlist`, with `WEBHOOK_URL_ALLOWLIST` as its fallback, matching path prefixes by whole segments.
+- `change/outcome-unknown`, for a create that may have happened, and `policy/webhook-url-not-allowed`.
+
+### Changed
+
+- `activate_bounce` is annotated destructive, since reactivating changes an existing record.
+- `edit_template` reads the template first and sends it back whole, with only the requested changes applied, rather than relying on how Postmark treats fields an edit leaves out.
+- `create_webhook` uses the configured default stream when none is given, as every other tool does, where the official server leaves Postmark to choose `outbound`.
+- A delete that may have happened despite failing is `change/outcome-unknown`, naming the tool to check with.
+- Server token and API base URL remediations name the flags as well as the variables.
+
+### Removed
+
+- `POSTMARK_READ_ONLY`, from 0.4.0, replaced by `--toolsets read`. The server refuses to start while it is set, rather than ignore it and offer every tool.
+
+### Security
+
+- A flag given an empty value is refused, rather than hiding its environment variable, which for an allowlist would silently lift the restriction.
+- A command line the parser cannot read, such as a flag and its value given as one argument, is reported without repeating its text whenever the token flag appears.
+- Webhook URLs with an encoded slash or backslash in the path are refused, since the receiving server could decode them into a path the allowlist never saw.
+
 ## [0.4.0] - 2026-11-07
 
 ### Added

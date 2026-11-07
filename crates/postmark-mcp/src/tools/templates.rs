@@ -50,9 +50,21 @@ impl TryFrom<ListTemplatesArgs> for TemplateQuery {
 /// A template's numeric ID or string alias, as a caller may send either.
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
-enum IdOrAlias {
+pub(super) enum IdOrAlias {
     Id(u64),
     Alias(String),
+}
+
+impl TryFrom<IdOrAlias> for ResourceId {
+    type Error = ValueError;
+
+    fn try_from(value: IdOrAlias) -> Result<Self, Self::Error> {
+        let value = match value {
+            IdOrAlias::Id(id) => id.to_string(),
+            IdOrAlias::Alias(alias) => alias,
+        };
+        Self::try_from(("template_id_or_alias", value))
+    }
 }
 
 /// Arguments of `get_template`.
@@ -68,11 +80,7 @@ impl TryFrom<GetTemplateArgs> for ResourceId {
     type Error = ValueError;
 
     fn try_from(args: GetTemplateArgs) -> Result<Self, Self::Error> {
-        let value = match args.template_id_or_alias {
-            IdOrAlias::Id(id) => id.to_string(),
-            IdOrAlias::Alias(alias) => alias,
-        };
-        Self::try_from(("template_id_or_alias", value))
+        Self::try_from(args.template_id_or_alias)
     }
 }
 

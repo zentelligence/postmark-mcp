@@ -399,7 +399,7 @@ async fn a_send_that_times_out_has_an_unknown_outcome() -> TestResult {
     let error = api(config)?.send_email(&email()?).await.err();
 
     assert_eq!(error, Some(GatewayError::Timeout));
-    assert!(error.is_some_and(|error| !error.send_outcome_is_known()));
+    assert!(error.is_some_and(|error| !error.outcome_is_known()));
     Ok(())
 }
 
@@ -415,6 +415,6 @@ async fn a_send_postmark_accepted_without_an_id_has_an_unknown_outcome() -> Test
     let error = api(config(&server)?)?.send_email(&email()?).await.err();
 
     assert!(matches!(error, Some(GatewayError::InvalidResponse { .. })), "{error:?}");
-    assert!(error.is_some_and(|error| !error.send_outcome_is_known()));
+    assert!(error.is_some_and(|error| !error.outcome_is_known()));
     Ok(())
 }

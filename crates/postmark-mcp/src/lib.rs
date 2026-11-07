@@ -11,6 +11,6 @@ mod tool_error;
 mod tool_log;
 mod tools;
 
-pub use config::{Config, ConfigError, Environment};
-pub use server::{PostmarkMcpServer, SendPolicy, ServerDefaults};
+pub use config::{Config, ConfigError, Environment, Setting, Settings, Sources, Toolsets};
+pub use server::{PostmarkMcpServer, ServerDefaults, ServerPolicy};
 pub use tool_log::ToolLog;

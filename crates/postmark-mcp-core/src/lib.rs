@@ -11,6 +11,7 @@
 mod bounces;
 mod diagnosis;
 mod gateway;
+mod managing;
 mod messages;
 mod sending;
 mod server;
@@ -26,6 +27,12 @@ pub use diagnosis::{
     DeliveryDiagnosis, DiagnosedMessage, DiagnosisQuery, IncompleteLookup, Verdict, diagnose_delivery,
 };
 pub use gateway::{GatewayError, PostmarkGateway};
+pub use managing::{
+    ChangesBounces, ChangesSuppressions, ChangesTemplates, ChangesWebhooks, Deletion, MAX_SUPPRESSION_ADDRESSES,
+    NewTemplate, NewTemplateRequest, NewWebhook, SuppressionChange, SuppressionOutcome, SuppressionResponse,
+    SuppressionResults, TemplateChange, TemplateChangeRequest, TemplateUpdate, WebhookTrigger, WebhookUrl,
+    WebhookUrlAllowlist,
+};
 pub use messages::{
     MessageDetails, MessageEvent, MessageList, MessageSearch, MessageStatus, MessageSummary, ReadsMessages,
 };
@@ -44,7 +51,7 @@ pub use templates::{
 };
 pub use values::{
     AgentLabel, BounceId, DateRange, FilterText, MailAddress, MessageStreamId, Page, PageRequest, PostmarkDate,
-    RecipientAddress, RecipientAllowlist, ResourceId, SenderAddress, ServerToken, ValueError,
+    RecipientAddress, RecipientAllowlist, ResourceId, SenderAddress, ServerToken, ValueError, WebhookId,
 };
 pub use webhooks::{ReadsWebhooks, Webhook, WebhookList};
 pub use wire::JsonObject;

@@ -3,11 +3,13 @@
 
 use async_trait::async_trait;
 use postmark_mcp_core::{
-    BatchItem, BatchOutcome, BounceDump, BounceId, BounceList, BounceSearch, DeliveryStat, DeliveryStats, GatewayError,
-    JsonObject, MessageDetails, MessageList, MessageSearch, MessageStreamId, OutboundEmail, ReadsBounces,
-    ReadsMessages, ReadsServer, ReadsStats, ReadsSuppressions, ReadsTemplates, ReadsWebhooks, ResourceId, SendReceipt,
-    SendsEmail, ServerSummary, StatsQuery, SuppressionList, SuppressionQuery, Template, TemplateList, TemplateQuery,
-    TemplateValidation, TemplatedEmail, ValidationResult, WebhookList,
+    BatchItem, BatchOutcome, Bounce, BounceDump, BounceId, BounceList, BounceSearch, ChangesBounces,
+    ChangesSuppressions, ChangesTemplates, ChangesWebhooks, Deletion, DeliveryStat, DeliveryStats, GatewayError,
+    JsonObject, MessageDetails, MessageList, MessageSearch, MessageStreamId, NewTemplate, NewWebhook, OutboundEmail,
+    ReadsBounces, ReadsMessages, ReadsServer, ReadsStats, ReadsSuppressions, ReadsTemplates, ReadsWebhooks, ResourceId,
+    SendReceipt, SendsEmail, ServerSummary, StatsQuery, SuppressionChange, SuppressionList, SuppressionQuery,
+    SuppressionResponse, SuppressionResults, Template, TemplateChange, TemplateList, TemplateQuery, TemplateSummary,
+    TemplateUpdate, TemplateValidation, TemplatedEmail, ValidationResult, Webhook, WebhookId, WebhookList,
 };
 use serde::{Deserialize, Serialize};
 
@@ -210,5 +212,142 @@ impl ReadsWebhooks for PostmarkApi {
     async fn list_webhooks(&self, message_stream: Option<&MessageStreamId>) -> Result<WebhookList, GatewayError> {
         let params = QueryParams::default().with_optional("MessageStream", message_stream);
         self.transport.get(&["webhooks"], &params).await
+    }
+}
+
+/// Postmark's plain acknowledgement, as a delete returns. It can carry a refusal
+/// with a success status, so the code decides.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct Acknowledgement {
+    error_code: Option<i64>,
+    #[serde(default)]
+    message: Option<String>,
+}
+
+impl From<Acknowledgement> for Result<(), GatewayError> {
+    fn from(ack: Acknowledgement) -> Self {
+        match ack.error_code {
+            Some(0) => Ok(()),
+            None => Err(GatewayError::InvalidResponse {
+                detail: "Postmark's reply did not confirm the change".to_owned(),
+            }),
+            Some(code) => Err(GatewayError::Rejected {
+                status: 200,
+                error_code: Some(code),
+                message: ack.message.unwrap_or_default(),
+            }),
+        }
+    }
+}
+
+#[async_trait]
+impl ChangesTemplates for PostmarkApi {
+    async fn create_template(&self, template: &NewTemplate) -> Result<TemplateSummary, GatewayError> {
+        self.transport.post(&["templates"], template).await
+    }
+
+    async fn edit_template(
+        &self,
+        id_or_alias: &ResourceId,
+        change: &TemplateChange,
+    ) -> Result<TemplateSummary, GatewayError> {
+        let current = self.get_template(id_or_alias).await?;
+        let update = TemplateUpdate::from((current, change));
+        self.transport
+            .put(&["templates", id_or_alias.as_ref()], Some(&update))
+            .await
+    }
+
+    async fn delete_template(&self, id_or_alias: &ResourceId) -> Result<Deletion, GatewayError> {
+        let ack: Acknowledgement = self.transport.delete(&["templates", id_or_alias.as_ref()]).await?;
+        Result::<(), GatewayError>::from(ack)?;
+        Ok(Deletion {
+            deleted: id_or_alias.as_ref().to_owned(),
+        })
+    }
+}
+
+/// Response of `PUT /bounces/{id}/activate`.
+#[derive(Debug, Deserialize)]
+struct Activation {
+    #[serde(rename = "Bounce")]
+    bounce: Bounce,
+}
+
+#[async_trait]
+impl ChangesBounces for PostmarkApi {
+    async fn activate_bounce(&self, bounce_id: BounceId) -> Result<Bounce, GatewayError> {
+        let id = bounce_id.to_string();
+        let activation: Activation = self.transport.put::<(), _>(&["bounces", &id, "activate"], None).await?;
+        Ok(activation.bounce)
+    }
+}
+
+/// Body of both suppression changes.
+#[derive(Debug, Serialize)]
+struct SuppressionRequest {
+    #[serde(rename = "Suppressions")]
+    suppressions: Vec<SuppressionEntry>,
+}
+
+#[derive(Debug, Serialize)]
+struct SuppressionEntry {
+    #[serde(rename = "EmailAddress")]
+    email_address: String,
+}
+
+impl From<&SuppressionChange> for SuppressionRequest {
+    fn from(change: &SuppressionChange) -> Self {
+        Self {
+            suppressions: change
+                .addresses
+                .iter()
+                .map(|address| SuppressionEntry {
+                    email_address: address.to_string(),
+                })
+                .collect(),
+        }
+    }
+}
+
+#[async_trait]
+impl ChangesSuppressions for PostmarkApi {
+    async fn create_suppressions(&self, change: &SuppressionChange) -> Result<SuppressionResults, GatewayError> {
+        let stream = change.message_stream.as_ref();
+        let response: SuppressionResponse = self
+            .transport
+            .post(
+                &["message-streams", stream, "suppressions"],
+                &SuppressionRequest::from(change),
+            )
+            .await?;
+        Ok((&change.message_stream, response).into())
+    }
+
+    async fn delete_suppressions(&self, change: &SuppressionChange) -> Result<SuppressionResults, GatewayError> {
+        let stream = change.message_stream.as_ref();
+        let response: SuppressionResponse = self
+            .transport
+            .post(
+                &["message-streams", stream, "suppressions", "delete"],
+                &SuppressionRequest::from(change),
+            )
+            .await?;
+        Ok((&change.message_stream, response).into())
+    }
+}
+
+#[async_trait]
+impl ChangesWebhooks for PostmarkApi {
+    async fn create_webhook(&self, webhook: &NewWebhook) -> Result<Webhook, GatewayError> {
+        self.transport.post(&["webhooks"], webhook).await
+    }
+
+    async fn delete_webhook(&self, webhook_id: WebhookId) -> Result<Deletion, GatewayError> {
+        let id = webhook_id.to_string();
+        let ack: Acknowledgement = self.transport.delete(&["webhooks", &id]).await?;
+        Result::<(), GatewayError>::from(ack)?;
+        Ok(Deletion { deleted: id })
     }
 }

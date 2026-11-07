@@ -7,6 +7,7 @@
 
 mod bounces;
 mod diagnosis;
+mod managing;
 mod messages;
 mod sending;
 mod server;

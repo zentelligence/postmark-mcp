@@ -61,8 +61,17 @@ fn only_a_refusal_before_acceptance_counts_as_certainly_not_sent() {
                 | GatewayError::InvalidRequest { .. }
         );
 
-        assert_eq!(error.send_outcome_is_known(), certain, "{error:?}");
+        assert_eq!(error.outcome_is_known(), certain, "{error:?}");
     }
     // A timeout is the case that matters most: Postmark may have accepted it.
-    assert!(!GatewayError::Timeout.send_outcome_is_known());
+    assert!(!GatewayError::Timeout.outcome_is_known());
+}
+
+#[test]
+fn remediations_name_the_flag_as_well_as_the_variable() {
+    let unauthorised = GatewayError::Unauthorised.remediation();
+    let redirected = GatewayError::RedirectRefused { status: 302 }.remediation();
+
+    assert!(unauthorised.contains("--server-token") && unauthorised.contains("POSTMARK_SERVER_TOKEN"));
+    assert!(redirected.contains("--api-base-url") && redirected.contains("POSTMARK_API_BASE_URL"));
 }

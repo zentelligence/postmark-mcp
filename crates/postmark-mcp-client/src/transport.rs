@@ -7,9 +7,9 @@
 use std::time::Duration;
 
 use postmark_mcp_core::{AgentLabel, GatewayError, ServerToken};
-use reqwest::header::{ACCEPT, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue, InvalidHeaderValue};
+use reqwest::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue, InvalidHeaderValue};
 use reqwest::redirect::Policy;
-use reqwest::{RequestBuilder, StatusCode};
+use reqwest::{Method, RequestBuilder, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -137,15 +137,43 @@ impl HardenedTransport {
         segments: &[&str],
         body: &B,
     ) -> Result<T, GatewayError> {
+        self.with_body(Method::POST, segments, Some(body)).await
+    }
+
+    /// Sends a `PUT`, with a JSON body if given, and decodes the JSON response.
+    pub(crate) async fn put<B: Serialize + Sync, T: DeserializeOwned>(
+        &self,
+        segments: &[&str],
+        body: Option<&B>,
+    ) -> Result<T, GatewayError> {
+        self.with_body(Method::PUT, segments, body).await
+    }
+
+    /// Sends a `DELETE` and decodes the JSON response.
+    pub(crate) async fn delete<T: DeserializeOwned>(&self, segments: &[&str]) -> Result<T, GatewayError> {
         let url = self.base_url.endpoint(segments, &QueryParams::default())?;
-        let body = serde_json::to_vec(body).map_err(|error| GatewayError::InvalidRequest {
-            detail: error.to_string(),
-        })?;
-        let request = self
-            .client
-            .post(url)
-            .header(CONTENT_TYPE, "application/json")
-            .body(body);
+        self.execute(self.client.delete(url)).await
+    }
+
+    async fn with_body<B: Serialize + Sync, T: DeserializeOwned>(
+        &self,
+        method: Method,
+        segments: &[&str],
+        body: Option<&B>,
+    ) -> Result<T, GatewayError> {
+        let url = self.base_url.endpoint(segments, &QueryParams::default())?;
+        let request = self.client.request(method, url);
+        let request = match body {
+            Some(body) => {
+                let body = serde_json::to_vec(body).map_err(|error| GatewayError::InvalidRequest {
+                    detail: error.to_string(),
+                })?;
+                request.header(CONTENT_TYPE, "application/json").body(body)
+            }
+            // An explicit empty body, so the request declares a length of zero,
+            // which some servers require of a PUT.
+            None => request.header(CONTENT_LENGTH, "0").body(Vec::new()),
+        };
         self.execute(request).await
     }
 

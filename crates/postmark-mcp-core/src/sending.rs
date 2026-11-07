@@ -372,7 +372,7 @@ pub trait SendsEmail: Send + Sync {
     /// # Errors
     ///
     /// Returns a [`GatewayError`] when the send fails. Use
-    /// [`GatewayError::send_outcome_is_known`] before suggesting a resend.
+    /// [`GatewayError::outcome_is_known`] before suggesting a resend.
     async fn send_email(&self, email: &OutboundEmail) -> Result<SendReceipt, GatewayError>;
 
     /// Sends one message from a template.

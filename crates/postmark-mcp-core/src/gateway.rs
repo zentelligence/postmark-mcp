@@ -5,7 +5,8 @@
 use thiserror::Error;
 
 use crate::{
-    ReadsBounces, ReadsMessages, ReadsServer, ReadsStats, ReadsSuppressions, ReadsTemplates, ReadsWebhooks, SendsEmail,
+    ChangesBounces, ChangesSuppressions, ChangesTemplates, ChangesWebhooks, ReadsBounces, ReadsMessages, ReadsServer,
+    ReadsStats, ReadsSuppressions, ReadsTemplates, ReadsWebhooks, SendsEmail,
 };
 
 /// Every capability the MCP server needs from Postmark.
@@ -18,6 +19,10 @@ pub trait PostmarkGateway:
     + ReadsTemplates
     + ReadsWebhooks
     + SendsEmail
+    + ChangesTemplates
+    + ChangesBounces
+    + ChangesSuppressions
+    + ChangesWebhooks
 {
 }
 
@@ -30,6 +35,10 @@ impl<T> PostmarkGateway for T where
         + ReadsTemplates
         + ReadsWebhooks
         + SendsEmail
+        + ChangesTemplates
+        + ChangesBounces
+        + ChangesSuppressions
+        + ChangesWebhooks
 {
 }
 
@@ -94,11 +103,11 @@ pub enum GatewayError {
 }
 
 impl GatewayError {
-    /// Whether a failed send certainly did not go out. Anything else leaves the
-    /// outcome unknown, such as a timeout after Postmark accepted the message, and
-    /// a resend then risks sending twice.
+    /// Whether a failed request certainly had no effect. Anything else leaves the
+    /// outcome unknown, such as a timeout after Postmark accepted it, and a repeat
+    /// then risks doing it twice, such as sending an email twice.
     #[must_use]
-    pub fn send_outcome_is_known(&self) -> bool {
+    pub fn outcome_is_known(&self) -> bool {
         matches!(
             self,
             Self::Unauthorised | Self::RateLimited | Self::Rejected { .. } | Self::InvalidRequest { .. }
@@ -128,7 +137,7 @@ impl GatewayError {
     pub fn remediation(&self) -> &'static str {
         match self {
             Self::Unauthorised => {
-                "Check POSTMARK_SERVER_TOKEN is a Server Token, not an Account Token. Find it at https://account.postmarkapp.com under your server's API Tokens tab."
+                "Check the token given by --server-token, --server-token-file, or POSTMARK_SERVER_TOKEN is a Server Token, not an Account Token. Find it at https://account.postmarkapp.com under your server's API Tokens tab."
             }
             Self::RateLimited => "Wait before retrying, and reduce the request rate.",
             Self::Rejected { .. } => "Correct the request using Postmark's message, and retry.",
@@ -137,7 +146,7 @@ impl GatewayError {
             }
             Self::Unreachable { .. } => "Check network access to the Postmark API, and retry.",
             Self::RedirectRefused { .. } => {
-                "Check POSTMARK_API_BASE_URL. Redirects are refused so the server token cannot reach another host."
+                "Check --api-base-url or POSTMARK_API_BASE_URL. Redirects are refused so the server token cannot reach another host."
             }
             Self::ResponseTooLarge { .. } => "Narrow the request, for example with a smaller page size.",
             Self::InvalidResponse { .. } | Self::InvalidRequest { .. } => {

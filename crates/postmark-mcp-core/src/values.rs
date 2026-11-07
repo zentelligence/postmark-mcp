@@ -121,6 +121,35 @@ pub enum ValueError {
     /// A recipient allowlist entry is unusable.
     #[error("each entry must be an address such as name@example.com, or a domain such as @example.com")]
     MalformedAllowlistEntry,
+    /// A layout template was given a subject.
+    #[error("a layout template must not have a subject")]
+    LayoutWithSubject,
+    /// A layout template was given a layout.
+    #[error("only a standard template can use a layout")]
+    LayoutInLayout,
+    /// A layout was both set and detached.
+    #[error("give either layout_template or detach_layout, not both")]
+    LayoutChangeConflict,
+    /// An edit changes nothing.
+    #[error("give at least one field to change")]
+    NothingToChange,
+    /// A suppression change has too few or too many addresses.
+    #[error("give between 1 and {limit} addresses")]
+    AddressCountOutOfRange {
+        /// Maximum permitted addresses.
+        limit: usize,
+    },
+    /// A webhook has nothing to report.
+    #[error("enable at least one trigger")]
+    NoWebhookTriggers,
+    /// A webhook URL could expose events or credentials.
+    #[error("url must be an HTTPS URL with no username or password in it")]
+    InsecureWebhookUrl,
+    /// A webhook allowlist entry is unusable.
+    #[error(
+        "each entry must be an HTTPS URL, such as https://hooks.example.com/postmark, with no username or password"
+    )]
+    MalformedWebhookAllowlistEntry,
     /// No content was supplied to validate.
     #[error("at least one of subject, html_body, or text_body must be provided")]
     NothingToValidate,
@@ -508,6 +537,28 @@ impl TryFrom<u64> for BounceId {
 }
 
 impl fmt::Display for BounceId {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{}", self.0)
+    }
+}
+
+/// A Postmark webhook identifier.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct WebhookId(u64);
+
+impl TryFrom<u64> for WebhookId {
+    type Error = ValueError;
+
+    fn try_from(value: u64) -> Result<Self, Self::Error> {
+        if value == 0 {
+            Err(ValueError::InvalidIdentifier { field: "webhook_id" })
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+
+impl fmt::Display for WebhookId {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(formatter, "{}", self.0)
     }

@@ -6,7 +6,7 @@ This is an independent project, not affiliated with ActiveCampaign or Postmark. 
 
 ## Status
 
-Early development. The server runs over stdio, supports MCP protocol revisions from 2024-11-05 to 2026-07-28, and offers sixteen tools: twelve read-only ones covering templates, messages, bounces, suppressions, statistics, webhooks, and delivery diagnosis, and four that send email. It cannot yet change templates, suppressions, bounces, or webhooks. See [`docs/mcp-tools.md`](docs/mcp-tools.md) for the tool catalogue, and [`docs/roadmap.md`](docs/roadmap.md) for what comes next.
+Early development. The server runs over stdio, supports MCP protocol revisions from 2024-11-05 to 2026-07-28, and offers all 24 tools of the official server, in three groups: twelve that read, including delivery diagnosis, four that send email, and eight that change templates, suppressions, bounces, and webhooks. See [`docs/mcp-tools.md`](docs/mcp-tools.md) for the tool catalogue, and [`docs/roadmap.md`](docs/roadmap.md) for what comes next.
 
 ## Installation
 
@@ -18,37 +18,36 @@ cargo install --path crates/postmark-mcp
 
 ## Quick start
 
-Set the three required variables, then check them against Postmark:
+Check your settings against Postmark:
 
 ```sh
-export POSTMARK_SERVER_TOKEN=your-server-token
-export DEFAULT_SENDER_EMAIL=sender@example.com
-export DEFAULT_MESSAGE_STREAM=outbound
-postmark-mcp doctor
+postmark-mcp --server-token-file ~/.config/postmark-mcp/token \
+  --default-sender sender@example.com --default-message-stream outbound doctor
 ```
 
-To use it from an MCP host, add an entry like this to the host's configuration:
+Then add an entry like this to your MCP host's configuration:
 
 ```json
 {
   "mcpServers": {
     "postmark": {
       "command": "postmark-mcp",
-      "env": {
-        "POSTMARK_SERVER_TOKEN": "your-server-token",
-        "DEFAULT_SENDER_EMAIL": "sender@example.com",
-        "DEFAULT_MESSAGE_STREAM": "outbound"
-      }
+      "args": [
+        "--server-token-file", "/home/you/.config/postmark-mcp/token",
+        "--default-sender", "sender@example.com",
+        "--default-message-stream", "outbound"
+      ]
     }
   }
 }
 ```
 
-See [`docs/configuration.md`](docs/configuration.md) for every variable.
+Every setting is a flag, with an environment variable fallback where a host can set one. See [`docs/configuration.md`](docs/configuration.md) for every setting, including `--toolsets`, which chooses whether the server can send and change account state.
 
 ## Security
 
-- Sending can be switched off entirely with `POSTMARK_READ_ONLY`, or restricted to listed recipients with `POSTMARK_RECIPIENT_ALLOWLIST`.
+- `--toolsets` chooses which groups of tools exist at all, so an agent that only sends cannot change templates or lift suppressions.
+- Recipients can be restricted with `--recipient-allowlist`, for staging and internal-only use, and webhook destinations with `--webhook-url-allowlist`.
 - A send that may or may not have gone out says so, rather than inviting a retry that could send twice.
 - The server token is sent only to the configured API origin, and redirects are always refused.
 - Every request has a timeout and a response size limit.

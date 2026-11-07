@@ -6,8 +6,16 @@ use serde_json::{Value, json};
 use support::{TestResult, failure, list_tools};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-const DELIVERED_TOOLS: [&str; 16] = [
+const DELIVERED_TOOLS: [&str; 24] = [
+    "activate_bounce",
+    "create_suppressions",
+    "create_template",
+    "create_webhook",
+    "delete_suppressions",
+    "delete_template",
+    "delete_webhook",
     "diagnose_delivery",
+    "edit_template",
     "get_bounce_dump",
     "get_delivery_stats",
     "get_message_details",
@@ -23,13 +31,6 @@ const DELIVERED_TOOLS: [&str; 16] = [
     "send_email",
     "send_email_with_template",
     "validate_template",
-];
-
-const SEND_TOOLS: [&str; 4] = [
-    "send_batch",
-    "send_batch_with_template",
-    "send_email",
-    "send_email_with_template",
 ];
 
 /// Collects every place a schema allows `null`, or uses array-form `type` or a
@@ -82,12 +83,31 @@ async fn every_tool_is_honestly_annotated_documented_and_closed_to_unknown_argum
             "{name}"
         );
         let annotations = tool.annotations.as_ref().ok_or("tool has no annotations")?;
-        let sends = SEND_TOOLS.contains(&name.as_ref());
-        assert_eq!(annotations.read_only_hint, Some(!sends), "{name}");
-        // Sending is additive: it deletes and overwrites nothing, which is what MCP
-        // means by destructive. Repeating it sends again, so it is not idempotent.
-        assert_eq!(annotations.destructive_hint, Some(false), "{name}");
-        assert_eq!(annotations.idempotent_hint, Some(!sends), "{name}");
+        // (read only, destructive, idempotent), by the MCP specification's
+        // definitions. Destructive means deleting or overwriting, so sending and
+        // creating are not. Idempotent means repeating has no further effect, so
+        // sending and creating are not, while deleting and overwriting are.
+        let expected = match name.as_ref() {
+            "send_email"
+            | "send_email_with_template"
+            | "send_batch"
+            | "send_batch_with_template"
+            | "create_template"
+            | "create_webhook" => (false, false, false),
+            "create_suppressions" => (false, false, true),
+            // Reactivating changes an existing record, as lifting a hard bounce
+            // suppression does, rather than adding one.
+            "activate_bounce" | "edit_template" | "delete_template" | "delete_suppressions" | "delete_webhook" => {
+                (false, true, true)
+            }
+            _ => (true, false, true),
+        };
+        let actual = (
+            annotations.read_only_hint,
+            annotations.destructive_hint,
+            annotations.idempotent_hint,
+        );
+        assert_eq!(actual, (Some(expected.0), Some(expected.1), Some(expected.2)), "{name}");
         assert_eq!(annotations.open_world_hint, Some(true), "{name}");
         assert_eq!(
             tool.input_schema.get("additionalProperties"),

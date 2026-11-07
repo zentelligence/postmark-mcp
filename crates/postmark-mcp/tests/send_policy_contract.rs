@@ -44,6 +44,12 @@ fn binary(postmark: &MockServer, env: &[(&str, &str)]) -> Command {
     command
 }
 
+async fn client_with_args(postmark: &MockServer, args: &[&str]) -> Result<Client, Box<dyn Error + Send + Sync>> {
+    let mut command = binary(postmark, &[]);
+    command.args(args);
+    Ok(().serve(TokioChildProcess::new(command)?).await?)
+}
+
 async fn client(postmark: &MockServer, env: &[(&str, &str)]) -> Result<Client, Box<dyn Error + Send + Sync>> {
     Ok(().serve(TokioChildProcess::new(binary(postmark, env))?).await?)
 }
@@ -106,9 +112,9 @@ async fn sending_is_available_by_default() -> TestResult {
 }
 
 #[tokio::test]
-async fn read_only_mode_removes_the_send_tools_entirely() -> TestResult {
+async fn the_read_toolset_alone_removes_the_send_tools_entirely() -> TestResult {
     let postmark = accepting().await;
-    let client = client(&postmark, &[("POSTMARK_READ_ONLY", "true")]).await?;
+    let client = client_with_args(&postmark, &["--toolsets", "read"]).await?;
 
     let names: HashSet<_> = client
         .list_all_tools()
@@ -243,7 +249,7 @@ async fn a_refusal_does_not_reveal_the_allowlist() -> TestResult {
 async fn invalid_guardrail_settings_stop_the_server_rather_than_being_ignored() -> TestResult {
     let postmark = MockServer::start().await;
     for setting in [
-        ("POSTMARK_READ_ONLY", "yes"),
+        ("POSTMARK_TOOLSETS", "read,write"),
         ("POSTMARK_RECIPIENT_ALLOWLIST", "not-an-address"),
         ("POSTMARK_RECIPIENT_ALLOWLIST", "@"),
         ("POSTMARK_RECIPIENT_ALLOWLIST", "a@example.com,,b@example.com"),
@@ -437,6 +443,78 @@ async fn an_allowed_address_cannot_cover_for_another_in_its_display_name() -> Te
     client.cancel().await?;
 
     assert_eq!(result.is_error, Some(true));
+    assert_eq!(sends(&postmark).await, 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn the_webhook_allowlist_refuses_other_destinations_before_any_request() -> TestResult {
+    let postmark = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/webhooks"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"ID": 1, "Url": "https://hooks.example.com/postmark/in"})),
+        )
+        .mount(&postmark)
+        .await;
+    let client = client_with_args(
+        &postmark,
+        &["--webhook-url-allowlist", "https://hooks.example.com/postmark"],
+    )
+    .await?;
+
+    let mut codes = Vec::new();
+    for url in [
+        "https://hooks.example.com/postmark-evil",
+        "https://evil.example.com/postmark",
+        "https://hooks.example.com/postmark/in",
+    ] {
+        let result = client
+            .call_tool(params("create_webhook", json!({"url": url, "triggers": ["Open"]}))?)
+            .await?;
+        codes.push(
+            result
+                .structured_content
+                .as_ref()
+                .and_then(|content| content.get("code"))
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+        );
+    }
+    client.cancel().await?;
+
+    assert_eq!(
+        codes,
+        [
+            Some("policy/webhook-url-not-allowed".to_owned()),
+            Some("policy/webhook-url-not-allowed".to_owned()),
+            None
+        ]
+    );
+    assert_eq!(sends(&postmark).await, 1, "only the permitted webhook reached Postmark");
+    Ok(())
+}
+
+#[tokio::test]
+async fn the_webhook_allowlist_variable_is_honoured_too() -> TestResult {
+    let postmark = MockServer::start().await;
+    let client = client(&postmark, &[("WEBHOOK_URL_ALLOWLIST", "https://hooks.example.com")]).await?;
+
+    let result = client
+        .call_tool(params(
+            "create_webhook",
+            json!({"url": "https://evil.example.com/x", "triggers": ["Open"]}),
+        )?)
+        .await?;
+    client.cancel().await?;
+
+    assert_eq!(
+        result
+            .structured_content
+            .as_ref()
+            .and_then(|content| content.get("code")),
+        Some(&json!("policy/webhook-url-not-allowed"))
+    );
     assert_eq!(sends(&postmark).await, 0);
     Ok(())
 }

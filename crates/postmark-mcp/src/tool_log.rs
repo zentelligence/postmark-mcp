@@ -24,9 +24,10 @@ const MAX_LOGGED_NAME: usize = 64;
 /// Fields whose values describe a request rather than carry its content. Only
 /// these are logged as given. Everything else is reduced to its size, so content
 /// under a name this list does not expect, such as `textBody`, stays out.
-const PLAIN_FIELDS: [&str; 20] = [
+const PLAIN_FIELDS: [&str; 23] = [
     "bounce_id",
     "count",
+    "detach_layout",
     "from_date",
     "inactive",
     "layout_template",
@@ -43,8 +44,10 @@ const PLAIN_FIELDS: [&str; 20] = [
     "template_id_or_alias",
     "template_type",
     "to_date",
+    "triggers",
     "type",
     "unexpected",
+    "webhook_id",
 ];
 
 /// Fields holding a list of messages or recipients, whose items are sanitised
@@ -52,10 +55,11 @@ const PLAIN_FIELDS: [&str; 20] = [
 const NESTED_FIELDS: [&str; 2] = ["messages", "recipients"];
 
 /// Fields holding addresses, or fragments of them.
-const ADDRESS_FIELDS: [&str; 9] = [
+const ADDRESS_FIELDS: [&str; 10] = [
     "bcc",
     "cc",
     "email_address",
+    "email_addresses",
     "email_filter",
     "from",
     "from_email",
@@ -245,7 +249,12 @@ fn sanitised(field: &str, value: &Value, full_addresses: bool) -> Value {
             .filter(|_| !full_addresses)
             .map_or_else(|| json!(text), |masked| json!(masked)),
         Value::Number(_) | Value::Bool(_) | Value::Null => value.clone(),
-        other => size_of(other),
+        // A list of plain values, such as webhook triggers, is plain too.
+        Value::Array(items) => each_item(items, |item| match item {
+            Value::Object(_) | Value::Array(_) => size_of(item),
+            other => sanitised(field, other, full_addresses),
+        }),
+        Value::Object(_) => size_of(value),
     }
 }
 

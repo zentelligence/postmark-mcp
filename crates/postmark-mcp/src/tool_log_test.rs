@@ -136,3 +136,21 @@ fn full_addresses_are_kept_only_on_request_and_content_stays_hidden() {
         json!({"to": "user@example.com", "subject": "[6 chars]"})
     );
 }
+
+#[test]
+fn identifiers_of_changes_are_kept_for_the_record() {
+    assert_eq!(
+        masked(json!({
+            "webhook_id": 12,
+            "triggers": ["Open", "Click"],
+            "detach_layout": true,
+            "email_addresses": ["user@example.com"],
+        })),
+        json!({
+            "webhook_id": 12,
+            "triggers": ["Open", "Click"],
+            "detach_layout": true,
+            "email_addresses": ["u**r@example.com"],
+        })
+    );
+}

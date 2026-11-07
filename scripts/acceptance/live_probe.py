@@ -5,7 +5,7 @@ shapes, counts, codes, and derived yes or no answers: never addresses, subjects,
 bodies, or other account content. The token is passed through from the
 environment and never printed. See docs/acceptance.md.
 
-Usage: python3 -I scripts/acceptance/live_probe.py <binary> [send]
+Usage: python3 -I scripts/acceptance/live_probe.py <binary> [send] [templates]
 
 Environment:
   POSTMARK_SERVER_TOKEN   required
@@ -13,6 +13,10 @@ Environment:
   DEFAULT_MESSAGE_STREAM  optional, defaults to outbound
 
 With `send`, exactly one email is sent, to Postmark's black hole address.
+
+With `templates`, a throwaway layout and template are created, read, edited,
+used for one email to the black hole address, and deleted. Deletion is attempted
+even if an earlier step fails.
 """
 
 import datetime
@@ -23,7 +27,8 @@ import sys
 import time
 
 BINARY = sys.argv[1]
-SEND = len(sys.argv) > 2 and sys.argv[2] == "send"
+SEND = "send" in sys.argv[2:]
+TEMPLATES = "templates" in sys.argv[2:]
 SENDER = os.environ["DEFAULT_SENDER_EMAIL"]
 STREAM = os.environ.get("DEFAULT_MESSAGE_STREAM") or "outbound"
 BLACKHOLE = "test@blackhole.postmarkapp.com"
@@ -219,5 +224,80 @@ if SEND:
         report("diagnose_delivery (black hole)", diagnosis)
         print("   verdict:", diagnosis.get("verdict"), "| investigated:", (diagnosis.get("investigated_message") or {}).get("message_id") == message_id,
               "| stream:", diagnosis.get("message_stream"), "| incomplete:", [i.get("code") for i in diagnosis.get("incomplete", [])])
+
+if TEMPLATES:
+    print("\n==== TEMPLATE LIFECYCLE ====")
+    stamp = int(time.time())
+    layout_alias = f"pmcp-acceptance-layout-{stamp}"
+    template_alias = f"pmcp-acceptance-{stamp}"
+    created = []
+
+    def check(label, condition):
+        print(f"   {'PASS' if condition else 'FAIL'}: {label}")
+
+    try:
+        layout = server.call("create_template", {
+            "name": "postmark-mcp acceptance layout",
+            "alias": layout_alias,
+            "template_type": "Layout",
+            "html_body": "<html><body>{{{@content}}}</body></html>",
+            "text_body": "{{{@content}}}",
+        })
+        report("create_template (layout)", layout)
+        if layout.get("template_id"):
+            created.append(layout_alias)
+
+        template = server.call("create_template", {
+            "name": "postmark-mcp acceptance template",
+            "alias": template_alias,
+            "subject": "Acceptance {{name}}",
+            "html_body": "<p>Hello {{name}}</p>",
+            "text_body": "Hello {{name}}",
+            "layout_template": layout_alias,
+        })
+        report("create_template (standard)", template)
+        if template.get("template_id"):
+            created.append(template_alias)
+
+        before = server.call("get_template", {"template_id_or_alias": template_alias})
+        report("get_template", before)
+        check("uses the layout", before.get("layout_template") == layout_alias)
+
+        listed = server.call("list_templates", {"count": 500})
+        aliases = {t.get("alias") for t in listed.get("templates", [])}
+        check("list_templates shows both", {layout_alias, template_alias} <= aliases)
+        check("list_templates reports no subject (as documented)", all("subject" not in t for t in listed.get("templates", [])))
+
+        edited = server.call("edit_template", {"template_id_or_alias": template_alias, "subject": "Edited {{name}}"})
+        report("edit_template (subject only)", edited)
+        after = server.call("get_template", {"template_id_or_alias": template_alias})
+        check("subject changed", after.get("subject") == "Edited {{name}}")
+        for field in ("name", "html_body", "text_body", "alias", "layout_template", "template_type"):
+            check(f"{field} kept", after.get(field) == before.get(field))
+
+        receipt = server.call("send_email_with_template", {
+            "to": BLACKHOLE,
+            "template_alias": template_alias,
+            "template_model": {"name": "Acceptance"},
+            "tag": "postmark-mcp-acceptance",
+        })
+        report("send_email_with_template", receipt)
+        if receipt.get("message_id"):
+            time.sleep(5)
+            details = server.call("get_message_details", {"message_id": receipt["message_id"]})
+            check("rendered subject used", details.get("subject") == "Edited Acceptance")
+            print("   events:", sorted({e.get("type") for e in details.get("events", [])}))
+
+        detached = server.call("edit_template", {"template_id_or_alias": template_alias, "detach_layout": True})
+        report("edit_template (detach_layout)", detached)
+        detached_state = server.call("get_template", {"template_id_or_alias": template_alias})
+        check("layout detached", "layout_template" not in detached_state)
+        check("subject kept after detaching", detached_state.get("subject") == "Edited {{name}}")
+    finally:
+        for alias in reversed(created):
+            deleted = server.call("delete_template", {"template_id_or_alias": alias})
+            report(f"delete_template ({'layout' if 'layout' in alias else 'standard'})", deleted)
+            gone = server.call("get_template", {"template_id_or_alias": alias})
+            check("now gone", gone.get("_is_error") and gone.get("code") == "postmark/rejected")
 
 server.close()

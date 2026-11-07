@@ -39,7 +39,7 @@ pub(crate) struct SendFailure(pub(crate) GatewayError);
 
 impl From<SendFailure> for ToolFailure {
     fn from(SendFailure(error): SendFailure) -> Self {
-        if error.send_outcome_is_known() {
+        if error.outcome_is_known() {
             return error.into();
         }
         Self {
@@ -50,7 +50,38 @@ impl From<SendFailure> for ToolFailure {
     }
 }
 
+/// A failed create, which may hide a change that was made, so a caller must
+/// check before trying again rather than risk a duplicate.
+pub(crate) struct ChangeFailure {
+    pub(crate) error: GatewayError,
+    /// The tool that shows whether the change was made.
+    pub(crate) check_with: &'static str,
+}
+
+impl From<ChangeFailure> for ToolFailure {
+    fn from(ChangeFailure { error, check_with }: ChangeFailure) -> Self {
+        if error.outcome_is_known() {
+            return error.into();
+        }
+        Self {
+            code: "change/outcome-unknown".to_owned(),
+            message: format!("the change may or may not have been made: {error}"),
+            remediation: format!("Check with {check_with} whether it was made before trying again."),
+        }
+    }
+}
+
 impl ToolFailure {
+    /// A webhook URL is outside the operator's allowlist. The list itself is not
+    /// revealed.
+    pub(crate) fn webhook_url_not_allowed() -> Self {
+        Self {
+            code: "policy/webhook-url-not-allowed".to_owned(),
+            message: "this URL is not an allowed webhook destination, so nothing was created".to_owned(),
+            remediation: "Use an allowed URL, or ask the operator to add it to --webhook-url-allowlist.".to_owned(),
+        }
+    }
+
     /// Names the batch message a failure is about, counting from 0.
     pub(crate) fn for_message(mut self, index: usize) -> Self {
         self.message = format!("message {index}: {}", self.message);

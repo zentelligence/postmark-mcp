@@ -116,7 +116,7 @@ async fn refuses_to_start_with_missing_configuration() -> TestResult {
         .await?;
 
     assert!(!output.status.success());
-    assert!(stderr(&output).contains("POSTMARK_SERVER_TOKEN is not set"));
+    assert!(stderr(&output).contains("--server-token (or POSTMARK_SERVER_TOKEN) is not set"));
     Ok(())
 }
 
