@@ -26,20 +26,29 @@ The goal is parity with the 24 tools of the official `postmark-mcp` server, deli
 - **Tracking.** This server never sets open or link tracking, so each Postmark server's settings decide, unlike the official server, which always turns both on.
 - **No automatic retries.** Postmark's documentation says nothing about idempotency, so a send that may have reached it is reported as `send/outcome-unknown`, never retried.
 
+## Verified live
+
+On 2026-11-07, every tool was run against a real Postmark server, through the real binary over stdio, at version 0.4.0. This confirmed:
+
+- Every read-only tool's result type decodes real responses, including `get_server_info`, message search and details, bounces, the bounce dump, suppressions, all fourteen statistics, and `validate_template`.
+- `open_read_times` works, although the API reference does not list it.
+- `+` for spaces in query values works: a search by a subject containing spaces finds its message.
+- `to_date` covers the whole of its final day.
+- `Metadata` is an object.
+- Message search results are newest first, which `diagnose_delivery` relies on.
+- `Details.BounceID` on a `Bounced` event matches the bounce record's ID, so a linked record can overrule the event as designed.
+- `send_email` sends, returns its receipt, and is reported as `Delivered` within seconds. With tracking left unset, the message follows the server's own settings.
+- `diagnose_delivery` finds and correctly diagnoses a message just sent.
+- The token appeared nowhere in stderr, and the tool log masked addresses and reduced content to its size.
+
 ## Verification still owed
 
-Result types were written from the Postmark API documentation and the official server's code, then tested against responses written by hand. A read-only pass with a real server token is needed to confirm them, in particular:
+The live server had no templates, no webhooks, and only single-recipient messages, so these remain unconfirmed:
 
-- `open_read_times`, which the official server uses, but the API reference does not list.
-- `+` versus `%20` for spaces in query values. This server uses the former, the official server the latter.
-- The shape of `Metadata`, which the documentation describes inconsistently.
-- Whether `to_date` covers the whole of its final day. Postmark's examples for messages and bounces show date-times, so a bare date may mean midnight.
+- `get_template`, and the three send tools other than `send_email`.
 - `MessageStream` on `list_webhooks`, where this server follows the documentation and the official server sends `messagestream`.
-- Which fields appear in message event `Details`, since only the allowlisted ones are returned.
 - Whether `Recipients` includes Cc and Bcc addresses, and whether it ever holds display names. A recipient missing from it reads as `no_recent_message`.
-- Whether `Details.BounceID` on a `Bounced` event links to the bounce record. If it does not, an out of office reply logged as a `Bounced` event reads as `bounced`.
-- A live send, ideally from a sandbox server or to `test@blackhole.postmarkapp.com`, confirming the request and response shapes, and that leaving tracking unset defers to the server's settings.
-- The order of message search results. `diagnose_delivery` takes the first match as the most recent, and neither the search nor the bounce documentation states a sort order.
+- Which fields appear in message event `Details` for events other than `Delivered` and `Bounced`, since only the allowlisted ones are returned.
 - Whether `ManualSuppression` with origin `Recipient` can be removed. The documentation mentions an authority failure without saying when it applies, so the recommendation treats it as the recipient's to reverse.
 
 ## Open decisions

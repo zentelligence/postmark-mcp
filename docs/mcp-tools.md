@@ -115,7 +115,7 @@ Takes `stat`, plus `tag`, `message_stream`, `from_date`, and `to_date`. With no 
 
 `totals` keeps Postmark's names, since many are dynamic. `rates` are percentages to one decimal place, and a rate missing a figure, or with a denominator of zero, is omitted rather than reported as zero. Open rate uses emails with open tracking as its denominator, not all tracked emails as the official server does, because an email with only link tracking cannot register an open. The per-day series Postmark returns is not included.
 
-`open_read_times` is not in Postmark's API reference. The official server uses it, so it is included, but it is unverified.
+`open_read_times` is not in Postmark's API reference. The official server uses it, and it was confirmed to work against a live server.
 
 ### `list_webhooks`
 
