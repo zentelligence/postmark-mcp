@@ -48,6 +48,7 @@ impl PostmarkMcpServer {
         tools.merge(Self::suppression_tool_router());
         tools.merge(Self::stats_tool_router());
         tools.merge(Self::webhook_tool_router());
+        tools.merge(Self::diagnosis_tool_router());
         Self {
             gateway,
             defaults: Arc::new(defaults),

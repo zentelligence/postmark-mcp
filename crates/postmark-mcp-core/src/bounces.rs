@@ -36,6 +36,21 @@ vocabulary! {
     }
 }
 
+/// What a bounce record says about delivery. Postmark's bounce log holds more
+/// than failed deliveries, including out of office replies and notices about mail
+/// that did arrive, so a record alone does not mean a message failed.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BounceOutcome {
+    /// The message was not delivered.
+    Failed,
+    /// Delivery hit a temporary problem.
+    Delayed,
+    /// The record is not a delivery failure.
+    NotAFailure,
+    /// The record does not say either way.
+    Unclassified,
+}
+
 /// Which bounces to find.
 #[derive(Clone, Debug)]
 pub struct BounceSearch {
@@ -118,6 +133,39 @@ pub struct Bounce {
     /// Subject of the original message.
     #[serde(default, deserialize_with = "blank_as_none")]
     pub subject: Option<String>,
+}
+
+impl Bounce {
+    /// Classifies this record from its type, following the descriptions in
+    /// Postmark's bounce type table. `SoftBounce` is a failure, not a delay:
+    /// Postmark's guidance says it needs action, and nothing says it is retried.
+    #[must_use]
+    pub fn outcome(&self) -> BounceOutcome {
+        match self.r#type.as_deref() {
+            Some(
+                "HardBounce"
+                | "SoftBounce"
+                | "BadEmailAddress"
+                | "Blocked"
+                | "SMTPApiError"
+                | "DMARCPolicy"
+                | "TemplateRenderingFailed",
+            ) => BounceOutcome::Failed,
+            Some("Transient" | "DnsError") => BounceOutcome::Delayed,
+            Some(
+                "AutoResponder"
+                | "SpamNotification"
+                | "SpamComplaint"
+                | "Subscribe"
+                | "Unsubscribe"
+                | "AddressChange"
+                | "OpenRelayTest"
+                | "VirusNotification"
+                | "ChallengeVerification",
+            ) => BounceOutcome::NotAFailure,
+            _ => BounceOutcome::Unclassified,
+        }
+    }
 }
 
 /// The raw source of a bounce. This is what the remote server sent back, which

@@ -7,7 +7,7 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.96"
 authors = ["Zentelligence Pty Ltd"]
@@ -17,6 +17,7 @@ publish = false
 [workspace.dependencies]
 async-trait = "0.1"
 clap = { version = "4.6.2", features = ["derive"] }
+futures-util = { version = "0.3", default-features = false }
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
 # Pinned exactly: the SDK defines the public MCP protocol surface, and any move
 # needs a deliberate review against the MCP specification and compatibility

@@ -49,6 +49,8 @@ A tool call flows: rmcp, arguments in `tools/<area>.rs`, `TryFrom` to a validate
 - The binary name is coupled to `env!("CARGO_BIN_EXE_postmark-mcp")` in `tests/stdio_transport.rs`.
 - The orphan rule shapes two conversions: `transport.rs` wraps `reqwest::Error` in `RequestFailure`, and tools wrap arguments in `WithDefaultStream`.
 - Result types need `#[skip_serializing_none]` above their derives. `schema.rs` removes nullability from schemas, so a `null` in a result would contradict the advertised schema.
+- A result type's top-level field cannot be called `code`, `message`, or `remediation`, because `fallible_output_schema_for` merges it with `ToolFailure`. `every_output_definition_is_used` and the type check in `success` catch this.
+- Edit scripts must assert their patterns match, because `cargo fmt` rewraps code.
 - Wiremock's path matcher is case-sensitive, but Postmark's API is not.
 - `vocabulary!` variants must stay undocumented: a doc comment turns the advertised `enum` into a `oneOf` of consts.
 - `.claude/scripts/check.sh` validates every relative Markdown link and rejects trailing whitespace in guidance files.

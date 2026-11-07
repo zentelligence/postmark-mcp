@@ -14,6 +14,8 @@ The MCP surface is a public compatibility boundary. Treat tool names, input sche
 - Preserve stable machine-readable error codes, and provide an actionable message and remediation hint.
 - Enforce documented limits, such as Postmark's 500 messages per batch, before calling the API.
 - Batch tools report per-message results, and isolate per-item failures.
+- Composite tools report a failed lookup as incomplete, never as an empty result, and check Postmark's results against the exact value requested. Recommendations name only tools the server has.
+- A result field must not share a name with a `ToolFailure` field (`code`, `message`, `remediation`). `fallible_output_schema_for` merges the two shapes, so the failure's definition would replace the result's.
 
 ## Contract tests
 

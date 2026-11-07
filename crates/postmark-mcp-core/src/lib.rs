@@ -9,6 +9,7 @@
 //! webhook passwords, is discarded during decoding.
 
 mod bounces;
+mod diagnosis;
 mod gateway;
 mod messages;
 mod server;
@@ -19,7 +20,10 @@ mod values;
 mod webhooks;
 mod wire;
 
-pub use bounces::{Bounce, BounceDump, BounceList, BounceSearch, BounceType, ReadsBounces};
+pub use bounces::{Bounce, BounceDump, BounceList, BounceOutcome, BounceSearch, BounceType, ReadsBounces};
+pub use diagnosis::{
+    DeliveryDiagnosis, DiagnosedMessage, DiagnosisQuery, IncompleteLookup, Verdict, diagnose_delivery,
+};
 pub use gateway::{GatewayError, PostmarkGateway};
 pub use messages::{
     MessageDetails, MessageEvent, MessageList, MessageSearch, MessageStatus, MessageSummary, ReadsMessages,
@@ -34,8 +38,8 @@ pub use templates::{
     TemplateTypeFilter, TemplateValidation, ValidationError, ValidationResult,
 };
 pub use values::{
-    AgentLabel, BounceId, DateRange, FilterText, MessageStreamId, Page, PageRequest, PostmarkDate, ResourceId,
-    SenderAddress, ServerToken, ValueError,
+    AgentLabel, BounceId, DateRange, FilterText, MessageStreamId, Page, PageRequest, PostmarkDate, RecipientAddress,
+    ResourceId, SenderAddress, ServerToken, ValueError,
 };
 pub use webhooks::{ReadsWebhooks, Webhook, WebhookList};
 pub use wire::JsonObject;

@@ -7,7 +7,7 @@ Draft a change brief for: $ARGUMENTS
 
 1. Read `.claude/templates/change-brief.md` for the required structure, and
    `.claude/workflows/change-loop.md` for the discovery steps.
-2. Identify the governing `docs/roadmap.md` entry, and read the matching upstream behaviour in `postmark-mcp` where it exists, and the Postmark API documentation.
+2. Identify the governing `docs/roadmap.md` entry, and read the matching upstream behaviour in `docs/upstream-postmark-mcp.md` where it exists, and the Postmark API documentation.
 3. Inspect the working tree and the code and tests nearest the change so the brief reflects the actual baseline, not an assumed one.
 4. Fill every section of the template: roadmap entry, behaviour (given, when, then, must not), scope, holistic quality assessment, planned TDD evidence, verification commands, and risks.
 5. Surface contract ambiguities explicitly per the source-of-truth precedence in `.claude/rules/00-index.md` rather than resolving them silently.

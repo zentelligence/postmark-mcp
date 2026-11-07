@@ -6,10 +6,10 @@ The goal is parity with the 24 tools of the official `postmark-mcp` server, deli
 
 - **Stage 0, foundation.** Workspace, CI, hardened transport, environment configuration, stdio server, `doctor`, and `get_server_info`.
 - **Stage 1, read-only tools.** Ten tools across templates, messages, bounces, suppressions, stats, and webhooks.
+- **Stage 2, diagnostics.** `diagnose_delivery`, which finds the message, checks suppressions and bounces on its stream, and reports what it could not establish rather than treating it as good news.
 
 ## Planned
 
-- **Stage 2, diagnostics.** `diagnose_delivery`, a composite that runs message, suppression, and bounce lookups concurrently, tolerates individual failures, and ends with a recommendation.
 - **Stage 3, sending.** The four send tools, plus tool call logging with address masking (`LOG_FILE`, `LOG_EMAIL_FULL`), which must land first.
 - **Stage 4, mutation.** Template, bounce, suppression, and webhook changes, including `WEBHOOK_URL_ALLOWLIST`.
 - **Stage 5, beyond parity.** Candidates only: the asynchronous bulk API, account-level tools (domains, sender signatures) using `POSTMARK_ACCOUNT_TOKEN`, and streamable HTTP, which would need authentication.
@@ -31,6 +31,10 @@ Result types were written from the Postmark API documentation and the official s
 - Whether `to_date` covers the whole of its final day. Postmark's examples for messages and bounces show date-times, so a bare date may mean midnight.
 - `MessageStream` on `list_webhooks`, where this server follows the documentation and the official server sends `messagestream`.
 - Which fields appear in message event `Details`, since only the allowlisted ones are returned.
+- Whether `Recipients` includes Cc and Bcc addresses, and whether it ever holds display names. A recipient missing from it reads as `no_recent_message`.
+- Whether `Details.BounceID` on a `Bounced` event links to the bounce record. If it does not, an out of office reply logged as a `Bounced` event reads as `bounced`.
+- The order of message search results. `diagnose_delivery` takes the first match as the most recent, and neither the search nor the bounce documentation states a sort order.
+- Whether `ManualSuppression` with origin `Recipient` can be removed. The documentation mentions an authority failure without saying when it applies, so the recommendation treats it as the recipient's to reverse.
 
 ## Open decisions
 

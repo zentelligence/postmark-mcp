@@ -6,7 +6,8 @@ use serde_json::{Value, json};
 use support::{TestResult, failure, list_tools};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-const STAGE_ONE_TOOLS: [&str; 11] = [
+const DELIVERED_TOOLS: [&str; 12] = [
+    "diagnose_delivery",
     "get_bounce_dump",
     "get_delivery_stats",
     "get_message_details",
@@ -57,7 +58,7 @@ async fn catalogue_holds_exactly_the_delivered_tools() -> TestResult {
 
     let mut names: Vec<_> = tools.iter().map(|tool| tool.name.as_ref()).collect();
     names.sort_unstable();
-    assert_eq!(names, STAGE_ONE_TOOLS);
+    assert_eq!(names, DELIVERED_TOOLS);
     Ok(())
 }
 
@@ -112,6 +113,25 @@ async fn no_schema_uses_a_form_that_mcp_hosts_mishandle() -> TestResult {
             awkward_schemas("output", &Value::Object(output.as_ref().clone()), &mut found);
         }
         assert!(found.is_empty(), "{} has awkward schemas at {found:?}", tool.name);
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn every_output_definition_is_used() -> TestResult {
+    for tool in list_tools(&MockServer::start().await).await? {
+        let output = tool.output_schema.as_ref().ok_or("tool has no output schema")?;
+        let Some(definitions) = output.get("$defs").and_then(Value::as_object) else {
+            continue;
+        };
+        let serialised = serde_json::to_string(output.as_ref())?;
+        for name in definitions.keys() {
+            assert!(
+                serialised.contains(&format!("#/$defs/{name}")),
+                "{} leaves {name} unreferenced, so a field was overwritten when merging",
+                tool.name
+            );
+        }
     }
     Ok(())
 }

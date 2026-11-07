@@ -6,6 +6,7 @@
 //! code before any request is made.
 
 mod bounces;
+mod diagnosis;
 mod messages;
 mod server;
 mod stats;

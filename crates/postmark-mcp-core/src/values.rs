@@ -82,6 +82,12 @@ pub enum ValueError {
     /// The requested page reaches beyond what Postmark can return.
     #[error("count plus offset must not exceed {MAX_PAGE_DEPTH}. Narrow the filters to reach further results")]
     PageTooDeep,
+    /// The value is not a single bare email address.
+    #[error("recipient must be a single email address, such as name@example.com")]
+    MalformedRecipient,
+    /// Dates cannot apply to one specific message.
+    #[error("give either message_id or dates, not both")]
+    MessageIdWithDates,
     /// No content was supplied to validate.
     #[error("at least one of subject, html_body, or text_body must be provided")]
     NothingToValidate,
@@ -252,6 +258,53 @@ impl TryFrom<(&'static str, String)> for FilterText {
 impl fmt::Display for FilterText {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.0)
+    }
+}
+
+/// One bare recipient address, such as `name@example.com`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecipientAddress(FilterText);
+
+impl RecipientAddress {
+    /// Whether another address is this one, which may be `Name <address>`. Case
+    /// is ignored, as mail providers treat addresses that way, and Postmark's
+    /// filters do not promise an exact match, so results must be checked with this.
+    #[must_use]
+    pub fn matches(&self, address: &str) -> bool {
+        let bare = address
+            .rsplit_once('<')
+            .and_then(|(_, rest)| rest.strip_suffix('>').or_else(|| rest.trim_end().strip_suffix('>')))
+            .unwrap_or(address);
+        self.0.0.eq_ignore_ascii_case(bare.trim())
+    }
+
+    /// This address as a search filter.
+    #[must_use]
+    pub fn filter(&self) -> FilterText {
+        self.0.clone()
+    }
+}
+
+impl TryFrom<String> for RecipientAddress {
+    type Error = ValueError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let valid = value
+            .split_once('@')
+            .is_some_and(|(mailbox, domain)| !mailbox.is_empty() && !domain.is_empty() && !domain.contains('@'))
+            && !value
+                .chars()
+                .any(|c| c.is_whitespace() || c.is_control() || matches!(c, '<' | '>' | ','));
+        if !valid {
+            return Err(ValueError::MalformedRecipient);
+        }
+        Ok(Self(FilterText::try_from(("recipient", value))?))
+    }
+}
+
+impl fmt::Display for RecipientAddress {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(formatter)
     }
 }
 

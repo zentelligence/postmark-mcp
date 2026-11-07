@@ -6,7 +6,7 @@ This is an independent project, not affiliated with ActiveCampaign or Postmark. 
 
 ## Status
 
-Early development. The server runs over stdio and offers eleven read-only tools covering templates, messages, bounces, suppressions, statistics, and webhooks. It cannot send mail or change anything yet. See [`docs/mcp-tools.md`](docs/mcp-tools.md) for the tool catalogue, and [`docs/roadmap.md`](docs/roadmap.md) for what comes next.
+Early development. The server runs over stdio and offers twelve read-only tools covering templates, messages, bounces, suppressions, statistics, webhooks, and delivery diagnosis. It cannot send mail or change anything yet. See [`docs/mcp-tools.md`](docs/mcp-tools.md) for the tool catalogue, and [`docs/roadmap.md`](docs/roadmap.md) for what comes next.
 
 ## Installation
 

@@ -119,11 +119,68 @@ Takes `stat`, plus `tag`, `message_stream`, `from_date`, and `to_date`. With no 
 
 Lists webhooks, optionally for one `message_stream`, with each one's `id`, `url`, `message_stream`, `status`, and enabled `triggers`. HTTP auth and custom headers are never included, and credentials, query strings, and fragments are removed from URLs. A URL's path is kept, so treat these URLs as sensitive: some services put the secret there.
 
+### `diagnose_delivery`
+
+Investigates why an email may not have reached `recipient`, which must be one bare address. It covers one message: the most recent one found, or the one named by `message_id`.
+
+| Argument | Description |
+| --- | --- |
+| `recipient` | The address to investigate. |
+| `message_id` | A specific message. Cannot be combined with dates. |
+| `message_stream` | Defaults to `DEFAULT_MESSAGE_STREAM`. A given message's own stream takes precedence, and the result's `message_stream` shows which was used. |
+| `from_date`, `to_date` | Restrict the message search and the bounce history, not the suppression check. With no dates, all retained history is searched. |
+
+| Result field | Description |
+| --- | --- |
+| `recipient`, `message_stream` | What was investigated. |
+| `verdict` | The conclusion, listed below. |
+| `recommendation` | What to do next. |
+| `suppression` | The suppression on this address on this stream. |
+| `investigated_message` | The message investigated, with its events for this recipient. |
+| `recent_bounces` | Up to ten bounce records of this address, the investigated message's first, including ones that are not delivery failures. |
+| `reactivatable_bounce_id` | For a hard bounce suppression, the bounce that deactivated the address, if it can be reactivated. |
+| `incomplete` | What could not be established, each with `lookup`, `code`, `message`, and `remediation`. If this is not empty, treat absent data as unknown. |
+
+`lookup` is `message`, `message_details`, `suppressions`, `bounces`, or `message_bounces`. As well as the codes above, `code` can be:
+
+| Code | Meaning |
+| --- | --- |
+| `diagnosis/recipient-mismatch` | The given message was not sent to this recipient, so it is not reported. |
+| `diagnosis/recipient-unconfirmed` | Postmark did not say who a message was sent to. |
+| `diagnosis/results-truncated` | More messages or bounces matched than were read, and those read were for other addresses. |
+| `diagnosis/stream-unconfirmed` | Postmark gave no usable stream for a message named by `message_id`, so the requested stream was checked instead. |
+
+| `verdict` | Meaning |
+| --- | --- |
+| `suppressed_spam_complaint`, `suppressed_hard_bounce`, `suppressed_manual`, `suppressed_other` | The address is suppressed on this stream. This takes priority, because it blocks future mail. |
+| `sandboxed` | The message was sandboxed, so it never left Postmark. |
+| `bounced` | A bounce event, or a bounce record for this message, shows delivery failed. |
+| `delivered` | A delivery, open, or click shows the receiving server accepted the message for this recipient. |
+| `delayed` | Delivery hit a temporary failure, and nothing shows it was delivered since. |
+| `queued` | The message has not been sent yet. |
+| `sent_no_delivery_event` | The message was sent, with no delivery recorded for this recipient, and every lookup succeeded. |
+| `bounce_history_only` | No message was found, but this address has bounce records. |
+| `no_recent_message` | No message to this address was found, and every lookup succeeded. |
+| `inconclusive` | The answer could not be established. See `incomplete`. |
+
+Postmark's bounce log holds more than failures, so its record types are classified. `HardBounce`, `SoftBounce`, `BadEmailAddress`, `Blocked`, `SMTPApiError`, `DMARCPolicy`, and `TemplateRenderingFailed` are failures. `Transient` and `DnsError` are delays. Out of office replies logged as `AutoResponder`, and the other notices that do not mean delivery failed, are not failures, and can overrule a `Bounced` event linked to them. Types that do not say either way, such as `Unknown`, are not evidence on their own, and do not overrule a `Bounced` event.
+
+A verdict resting on evidence that was found stands even if another lookup failed, so one other than `inconclusive` can still come with entries in `incomplete`. A verdict resting on nothing being found needs those lookups to succeed: `delayed` and `queued` need the bounce lookups, and `sent_no_delivery_event` and `no_recent_message` need every lookup.
+
+This differs from the official server in several ways, all to avoid a confident wrong answer:
+
+- A failed lookup is listed in `incomplete`, and never read as an empty result. If every lookup fails, the tool fails.
+- Postmark's address filters may match partially, so results are checked against the exact address, ignoring case.
+- Only events for this recipient count, so delivery to another recipient of the same message does not. An event naming nobody counts only on a message with one recipient.
+- Bounce records are classified, and attributed to a message only by its ID.
+- The stream applies to every lookup, and a given message's own stream takes precedence.
+- There is no default date window, so an older message is still found.
+- Recommendations name only tools this server has.
+
 ## Planned
 
 | Tool | Official name | Stage |
 | --- | --- | --- |
-| `diagnose_delivery` | `diagnoseDelivery` | 2 |
 | `send_email` | `sendEmail` | 3 |
 | `send_email_with_template` | `sendEmailWithTemplate` | 3 |
 | `send_batch` | `sendBatch` | 3 |

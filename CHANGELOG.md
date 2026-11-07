@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-07
+
+### Added
+
+- `diagnose_delivery`, which checks the most recent message and its events, then suppressions and bounce history, for one exact address, and gives a verdict and recommendation. What could not be established is reported in `incomplete`, and never read as an empty result.
+- `docs/upstream-postmark-mcp.md`, a reference for what the official server does.
+
 ## [0.2.0] - 2026-11-07
 
 ### Added

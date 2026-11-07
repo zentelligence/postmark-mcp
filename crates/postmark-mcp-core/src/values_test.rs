@@ -215,3 +215,48 @@ fn pages_apply_defaults_and_postmarks_limits() {
     assert_eq!(page(Some(500), Some(9501)), Err(ValueError::PageTooDeep));
     assert_eq!(page(None, Some(u32::MAX)), Err(ValueError::PageTooDeep));
 }
+
+#[test]
+fn recipient_must_be_one_bare_address() {
+    for valid in ["alice@example.com", "first.last+tag@sub.example.com"] {
+        assert!(RecipientAddress::try_from(valid.to_owned()).is_ok(), "{valid}");
+    }
+    for invalid in [
+        "",
+        "alice",
+        "@example.com",
+        "alice@",
+        "a@b@c",
+        "Alice <alice@example.com>",
+        "a@b.com, c@d.com",
+        "a b@example.com",
+    ] {
+        assert_eq!(
+            RecipientAddress::try_from(invalid.to_owned()),
+            Err(ValueError::MalformedRecipient),
+            "{invalid}"
+        );
+    }
+}
+
+#[test]
+fn recipient_matching_ignores_case_but_not_partial_addresses() -> Result<(), ValueError> {
+    let recipient = RecipientAddress::try_from("alice@example.com".to_owned())?;
+
+    assert!(recipient.matches("Alice@Example.COM"));
+    assert!(recipient.matches(" alice@example.com "));
+    assert!(!recipient.matches("malice@example.com"));
+    assert!(!recipient.matches("alice@example.com.au"));
+    Ok(())
+}
+
+#[test]
+fn recipient_matching_sees_through_display_names() -> Result<(), ValueError> {
+    let recipient = RecipientAddress::try_from("alice@example.com".to_owned())?;
+
+    assert!(recipient.matches("Alice Smith <alice@example.com>"));
+    assert!(recipient.matches("<ALICE@example.com>"));
+    assert!(!recipient.matches("Alice <malice@example.com>"));
+    assert!(!recipient.matches("alice@example.com <malice@example.com>"));
+    Ok(())
+}

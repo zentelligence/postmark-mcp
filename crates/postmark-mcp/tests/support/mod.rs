@@ -4,6 +4,8 @@
 // Each test binary compiles this module separately and uses only part of it.
 #![allow(dead_code)]
 
+pub mod diagnosis;
+
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::sync::Arc;
@@ -101,10 +103,23 @@ async fn assert_advertised(postmark: &MockServer, name: &str, content: &Value) -
     let schema = tool.output_schema.as_ref().ok_or("tool has no output schema")?;
     let properties = schema.get("properties").and_then(Value::as_object);
     let properties = properties.ok_or("output schema has no properties")?;
-    for field in content.as_object().ok_or("result is not an object")?.keys() {
+    for (field, value) in content.as_object().ok_or("result is not an object")? {
+        let advertised = properties
+            .get(field)
+            .ok_or_else(|| format!("{name} returned unadvertised field {field}"))?;
+        let expected = advertised.get("type").and_then(Value::as_str);
+        let actual = match value {
+            Value::Object(_) => "object",
+            Value::Array(_) => "array",
+            Value::String(_) => "string",
+            Value::Bool(_) => "boolean",
+            Value::Number(_) => "number",
+            Value::Null => "null",
+        };
+        let compatible = expected.is_none_or(|kind| kind == actual || (kind == "integer" && actual == "number"));
         assert!(
-            properties.contains_key(field),
-            "{name} returned unadvertised field {field}"
+            compatible,
+            "{name} field {field} is {actual}, advertised as {expected:?}"
         );
     }
     Ok(())
