@@ -1,0 +1,17 @@
+[package]
+name = "postmark-mcp-core"
+description = "Domain types and ports for the Postmark MCP server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+secrecy.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

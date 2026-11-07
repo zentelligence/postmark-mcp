@@ -1,0 +1,10 @@
+Postmark MCP
+Copyright 2026 Zentelligence Pty Ltd
+
+This product is licensed under the Apache License, Version 2.0. See LICENSE for the full text.
+
+This is an independent project. It is not affiliated with, or endorsed by, ActiveCampaign or Postmark. Postmark is a trademark of its owner, and the name is used here only to describe the service this software connects to.
+
+The tool surface and configuration variable names are informed by postmark-mcp (https://github.com/ActiveCampaign/postmark-mcp), Copyright (c) 2025 ActiveCampaign, licensed under the MIT Licence. No source code from that project is included.
+
+This product includes third-party software governed by their own licence terms. The full text of every third-party licence, and the crates that use each one, is recorded in THIRD_PARTY_LICENSES.md.

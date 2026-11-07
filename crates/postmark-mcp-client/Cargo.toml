@@ -1,0 +1,25 @@
+[package]
+name = "postmark-mcp-client"
+description = "Hardened Postmark API adapter for the Postmark MCP server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+postmark-mcp-core = { path = "../postmark-mcp-core" }
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["io-util", "net"] }
+wiremock.workspace = true
+
+[lints]
+workspace = true

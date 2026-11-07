@@ -1,0 +1,34 @@
+[package]
+name = "postmark-mcp"
+description = "MCP server and composition root for the Postmark email API"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "postmark-mcp"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+postmark-mcp-client = { path = "../postmark-mcp-client" }
+postmark-mcp-core = { path = "../postmark-mcp-core" }
+rmcp.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+async-trait.workspace = true
+rmcp = { workspace = true, features = ["client", "transport-child-process"] }
+tokio = { workspace = true, features = ["io-util", "process"] }
+wiremock.workspace = true
+
+[lints]
+workspace = true

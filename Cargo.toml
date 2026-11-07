@@ -1,0 +1,45 @@
+[workspace]
+members = [
+    "crates/postmark-mcp",
+    "crates/postmark-mcp-client",
+    "crates/postmark-mcp-core",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+authors = ["Zentelligence Pty Ltd"]
+license = "Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+async-trait = "0.1"
+clap = { version = "4.6.2", features = ["derive"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
+# Pinned exactly: the SDK defines the public MCP protocol surface, and any move
+# needs a deliberate review against the MCP specification and compatibility
+# tests. See `.claude/rules/mcp-contracts.md`.
+rmcp = { version = "=3.9.0", default-features = false, features = ["macros", "server", "transport-io"] }
+secrecy = "0.10.3"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = { version = "1.0.149", features = ["preserve_order"] }
+thiserror = "2.0.18"
+tokio = { version = "1.53.0", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+url = "2.5.8"
+wiremock = "0.6.5"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
