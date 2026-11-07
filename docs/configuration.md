@@ -10,7 +10,7 @@ Names match the official `postmark-mcp` server, so an existing host entry works 
 | --- | --- |
 | `POSTMARK_SERVER_TOKEN` | Server API token, from your server's API Tokens tab. Scopes every tool to that one server. |
 | `DEFAULT_SENDER_EMAIL` | Sender used when a tool call does not supply one, as `sender@example.com` or `Name <sender@example.com>`. Must have a verified Sender Signature. |
-| `DEFAULT_MESSAGE_STREAM` | Message stream ID used when a tool call does not supply one, typically `outbound`. |
+| `DEFAULT_MESSAGE_STREAM` | Message stream ID used when a tool call does not supply one, typically `outbound`. Applies to message, bounce, and suppression tools. Statistics and webhooks cover all streams unless one is requested. |
 
 ## Optional
 

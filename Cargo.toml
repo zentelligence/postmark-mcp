@@ -7,7 +7,7 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.96"
 authors = ["Zentelligence Pty Ltd"]
@@ -22,9 +22,11 @@ reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] 
 # needs a deliberate review against the MCP specification and compatibility
 # tests. See `.claude/rules/mcp-contracts.md`.
 rmcp = { version = "=3.9.0", default-features = false, features = ["macros", "server", "transport-io"] }
+schemars = "1.2.3"
 secrecy = "0.10.3"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.149", features = ["preserve_order"] }
+serde_with = { version = "3.24.0", default-features = false, features = ["macros"] }
 thiserror = "2.0.18"
 tokio = { version = "1.53.0", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1.44"

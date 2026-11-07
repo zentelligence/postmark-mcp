@@ -10,8 +10,13 @@ publish.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+schemars.workspace = true
 secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_with.workspace = true
 thiserror.workspace = true
+url.workspace = true
 
 [lints]
 workspace = true

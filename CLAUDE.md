@@ -18,18 +18,19 @@ Rust MCP server for the Postmark email API. Cargo workspace of library crates be
 
 ## Architecture in one screen
 
-- `postmark-mcp-core`: validated values, domain results, capability ports (`ReadsServer`), and `GatewayError`.
-- `postmark-mcp-client`: `HardenedTransport` (every request, and failure classification) and `PostmarkApi` (wire types and the port implementations).
-- `postmark-mcp`: environment configuration, the MCP server, `tools/*` routers, `ToolFailure`, and the binary.
+- `postmark-mcp-core`: validated values, result types, capability ports (`ReadsTemplates` and so on, each beside its types), the composite `PostmarkGateway`, and `GatewayError`.
+- `postmark-mcp-client`: `HardenedTransport` (every request, and failure classification) and `PostmarkApi` (implements the ports, naming each route and its parameters).
+- `postmark-mcp`: environment configuration, the MCP server, `tools/*` routers, `schema.rs`, `ToolFailure`, and the binary.
 
-A tool call flows: rmcp, `tools/<area>.rs`, a port, `PostmarkApi`, `HardenedTransport`, Postmark. Failures return as `GatewayError`, then `ToolFailure`, a tool result with `isError` set.
+A tool call flows: rmcp, arguments in `tools/<area>.rs`, `TryFrom` to a validated query, a port, `PostmarkApi`, `HardenedTransport`, Postmark. A result type decodes from Postmark's `PascalCase` and serialises as `snake_case`, so one struct serves both ends. Failures return as `GatewayError` or `ValueError`, then `ToolFailure`, a tool result with `isError` set.
 
 ## Adding a tool
 
-1. Add or extend a capability port in `postmark-mcp-core`, with domain types that omit anything secret.
-2. Implement it in `postmark-mcp-client/src/api.rs`, with a wire type modelling only the fields used, checked against the Postmark API documentation, and adapter tests in `tests/transport_contract.rs`.
-3. Add the handler to `postmark-mcp/src/tools/<area>.rs`, following `tools/server.rs`, and merge any new router in `PostmarkMcpServer::new`.
-4. Add contract tests, then update `docs/mcp-tools.md`, `docs/roadmap.md`, and `CHANGELOG.md`.
+1. Write the contract test first, in `crates/postmark-mcp/tests/`. It calls the tool by name, so it compiles before the tool exists, and fails with `tool not found`.
+2. Add the query and result types to the area's module in `postmark-mcp-core`, modelling only fields worth returning, checked against the Postmark API documentation. Use the decoders in `wire.rs`, and `sanitised_url` for any URL.
+3. Implement the port in `postmark-mcp-client/src/api.rs`.
+4. Add the arguments and handler to `postmark-mcp/src/tools/<area>.rs`, with `input_schema = input_schema_for::<Args>()` and `output_schema = fallible_output_schema_for::<Result>()`. Merge any new router in `PostmarkMcpServer::new`.
+5. Add the name to `catalogue_contract.rs`, then update `docs/mcp-tools.md`, `docs/roadmap.md`, and `CHANGELOG.md`.
 
 ## Rule routing
 
@@ -46,7 +47,9 @@ A tool call flows: rmcp, `tools/<area>.rs`, a port, `PostmarkApi`, `HardenedTran
 ## Repository gotchas
 
 - The binary name is coupled to `env!("CARGO_BIN_EXE_postmark-mcp")` in `tests/stdio_transport.rs`.
-- The orphan rule blocks `From<reqwest::Error>` for `GatewayError`, so `transport.rs` uses a local wrapper (`RequestFailure`).
-- Optional result fields need `#[schemars(schema_with = "plain::<T>")]` and `skip_serializing_if`, because several MCP hosts mishandle `["string", "null"]`.
+- The orphan rule shapes two conversions: `transport.rs` wraps `reqwest::Error` in `RequestFailure`, and tools wrap arguments in `WithDefaultStream`.
+- Result types need `#[skip_serializing_none]` above their derives. `schema.rs` removes nullability from schemas, so a `null` in a result would contradict the advertised schema.
+- Wiremock's path matcher is case-sensitive, but Postmark's API is not.
+- `vocabulary!` variants must stay undocumented: a doc comment turns the advertised `enum` into a `oneOf` of consts.
 - `.claude/scripts/check.sh` validates every relative Markdown link and rejects trailing whitespace in guidance files.
 - `#[tool_handler]` output trips `clippy::unused_async_trait_impl`, which is why `server.rs` carries a narrow allow.

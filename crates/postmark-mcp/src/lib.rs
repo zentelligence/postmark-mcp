@@ -5,6 +5,7 @@
 //! lower crates.
 
 mod config;
+mod schema;
 mod server;
 mod tool_error;
 mod tools;

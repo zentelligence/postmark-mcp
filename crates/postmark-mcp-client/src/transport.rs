@@ -7,14 +7,14 @@
 use std::time::Duration;
 
 use postmark_mcp_core::{AgentLabel, GatewayError, ServerToken};
-use reqwest::header::{ACCEPT, HeaderMap, HeaderName, HeaderValue, InvalidHeaderValue};
+use reqwest::header::{ACCEPT, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue, InvalidHeaderValue};
 use reqwest::redirect::Policy;
-use reqwest::{Method, StatusCode};
-use serde::Deserialize;
+use reqwest::{RequestBuilder, StatusCode};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::base_url::{ApiBaseUrl, BaseUrlError};
+use crate::base_url::{ApiBaseUrl, BaseUrlError, QueryParams};
 
 /// Postmark's `ErrorCode` for a bad or missing server token.
 const ERROR_CODE_BAD_TOKEN: i64 = 10;
@@ -121,17 +121,36 @@ impl TryFrom<TransportConfig> for HardenedTransport {
 }
 
 impl HardenedTransport {
-    /// Sends a request and decodes a successful JSON response.
-    ///
-    /// `path_and_query` must already be percent-encoded: any value from a tool
-    /// call has to be encoded by the caller before it reaches this point.
-    pub(crate) async fn request<T: DeserializeOwned>(
+    /// Sends a `GET` and decodes the JSON response.
+    pub(crate) async fn get<T: DeserializeOwned>(
         &self,
-        method: Method,
-        path_and_query: &str,
+        segments: &[&str],
+        query: &QueryParams,
     ) -> Result<T, GatewayError> {
-        let url = self.base_url.resolve(path_and_query)?;
-        let response = self.client.request(method, url).send().await.map_err(RequestFailure)?;
+        let url = self.base_url.endpoint(segments, query)?;
+        self.execute(self.client.get(url)).await
+    }
+
+    /// Sends a `POST` with a JSON body and decodes the JSON response.
+    pub(crate) async fn post<B: Serialize + Sync, T: DeserializeOwned>(
+        &self,
+        segments: &[&str],
+        body: &B,
+    ) -> Result<T, GatewayError> {
+        let url = self.base_url.endpoint(segments, &QueryParams::default())?;
+        let body = serde_json::to_vec(body).map_err(|error| GatewayError::InvalidRequest {
+            detail: error.to_string(),
+        })?;
+        let request = self
+            .client
+            .post(url)
+            .header(CONTENT_TYPE, "application/json")
+            .body(body);
+        self.execute(request).await
+    }
+
+    async fn execute<T: DeserializeOwned>(&self, request: RequestBuilder) -> Result<T, GatewayError> {
+        let response = request.send().await.map_err(RequestFailure)?;
 
         let status = response.status();
         if status.is_redirection() {
@@ -144,8 +163,9 @@ impl HardenedTransport {
         if !status.is_success() {
             return Err(Rejection { status, body: &body }.into());
         }
+        // Not `error.to_string()`, which can quote values from the response.
         serde_json::from_slice(&body).map_err(|error| GatewayError::InvalidResponse {
-            detail: error.to_string(),
+            detail: format!("unexpected shape at line {}, column {}", error.line(), error.column()),
         })
     }
 

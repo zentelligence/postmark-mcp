@@ -174,7 +174,7 @@ async fn credentials_embedded_in_hook_urls_are_removed() -> TestResult {
 
     assert_eq!(
         summary.bounce_hook_url.as_deref(),
-        Some("https://hooks.example.com/bounce?source=postmark")
+        Some("https://hooks.example.com/bounce")
     );
     assert_eq!(
         summary.inbound_hook_url.as_deref(),
@@ -342,6 +342,17 @@ async fn relayed_rejection_messages_are_bounded() -> TestResult {
     let error = failure_for(response).await?;
 
     assert!(matches!(error, Some(GatewayError::Rejected { message, .. }) if message.chars().count() == 500));
+    Ok(())
+}
+
+#[tokio::test]
+async fn decoding_failures_do_not_echo_response_values() -> TestResult {
+    let response = ResponseTemplate::new(200).set_body_json(json!({"ID": "leak@example.com", "Name": "x"}));
+
+    let error = failure_for(response).await?;
+
+    assert!(matches!(error, Some(GatewayError::InvalidResponse { .. })), "{error:?}");
+    assert!(!format!("{error:?}").contains("leak@example.com"), "{error:?}");
     Ok(())
 }
 

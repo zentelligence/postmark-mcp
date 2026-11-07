@@ -6,7 +6,7 @@ This is an independent project, not affiliated with ActiveCampaign or Postmark. 
 
 ## Status
 
-Early development. The server runs end to end over stdio, but exposes only one tool so far, `get_server_info`. See [`docs/roadmap.md`](docs/roadmap.md) for what comes next, and [`docs/mcp-tools.md`](docs/mcp-tools.md) for the tool catalogue.
+Early development. The server runs over stdio and offers eleven read-only tools covering templates, messages, bounces, suppressions, statistics, and webhooks. It cannot send mail or change anything yet. See [`docs/mcp-tools.md`](docs/mcp-tools.md) for the tool catalogue, and [`docs/roadmap.md`](docs/roadmap.md) for what comes next.
 
 ## Installation
 
@@ -51,14 +51,15 @@ See [`docs/configuration.md`](docs/configuration.md) for every variable.
 - The server token is sent only to the configured API origin, and redirects are always refused.
 - Every request has a timeout and a response size limit.
 - Tokens never appear in logs, errors, or tool results, including the API tokens Postmark returns in its own responses.
-- Credentials embedded in webhook URLs are removed before they reach a tool result.
+- Webhook passwords and custom headers never reach a tool result, and credentials, query strings, and fragments are removed from webhook URLs. A secret in a URL's path cannot be detected, and is not removed.
+- Message bodies and clicked link URLs are not returned. The exception is `get_bounce_dump`, which returns a bounce's raw source, and that can quote the original message.
 
 ## Architecture
 
 | Crate | Responsibility |
 | --- | --- |
-| `postmark-mcp-core` | Validated values, domain results, and ports. No adapter dependencies. |
-| `postmark-mcp-client` | Hardened HTTP transport, Postmark wire types, and the port implementations. |
+| `postmark-mcp-core` | Validated values, result types, and ports. No adapter dependencies. |
+| `postmark-mcp-client` | Hardened HTTP transport, and the port implementations. |
 | `postmark-mcp` | Configuration, the MCP server, the tool catalogue, and the binary. |
 
 ## Contributing

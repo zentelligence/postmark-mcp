@@ -1093,9 +1093,8 @@ checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
 name = "postmark-mcp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
- "async-trait",
  "clap",
  "postmark-mcp-client",
  "postmark-mcp-core",
@@ -1111,7 +1110,7 @@ dependencies = [
 
 [[package]]
 name = "postmark-mcp-client"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "postmark-mcp-core",
@@ -1126,11 +1125,16 @@ dependencies = [
 
 [[package]]
 name = "postmark-mcp-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
+ "schemars",
  "secrecy",
+ "serde",
+ "serde_json",
+ "serde_with",
  "thiserror",
+ "url",
 ]
 
 [[package]]
@@ -1632,6 +1636,28 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
+]
+
+[[package]]
+name = "serde_with"
+version = "3.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df9adc193c780ef8f159aee8b61e2d5801aaa555e6eb0947fe45530ec506296f"
+dependencies = [
+ "serde_core",
+ "serde_with_macros",
+]
+
+[[package]]
+name = "serde_with_macros"
+version = "3.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e17bbc68e28663bbbb90df47e058aa7eda4fb445b89fe70457bb94fbccf6e49"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
 ]
 
 [[package]]

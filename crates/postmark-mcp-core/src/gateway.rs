@@ -1,57 +1,20 @@
-//! Ports through which the server reaches Postmark, and the failures they
-//! report. Ports are small capability traits, one per area of the Postmark API,
-//! so a tool depends only on what it uses and tests fake only what they need.
+//! The composite port, and the failures every port reports. Ports are small
+//! capability traits, one per area of the Postmark API, each defined beside its
+//! domain types.
 
-use async_trait::async_trait;
 use thiserror::Error;
 
-/// The Postmark server a token belongs to.
-///
-/// Deliberately has no field for API tokens: Postmark returns them in this
-/// response, and a type that cannot hold them cannot leak them to a tool result.
-/// Optional fields are `None` when Postmark reports them unset or omits them.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct ServerSummary {
-    /// Postmark's numeric server identifier.
-    pub id: i64,
-    /// Display name of the server.
-    pub name: String,
-    /// Colour label of the server in Postmark's interface.
-    pub color: Option<String>,
-    /// Whether the SMTP API is activated for this server.
-    pub smtp_api_activated: Option<bool>,
-    /// Address that receives inbound mail for this server.
-    pub inbound_address: Option<String>,
-    /// Custom domain for inbound mail.
-    pub inbound_domain: Option<String>,
-    /// Whether open tracking is on by default.
-    pub track_opens: Option<bool>,
-    /// Default link tracking mode, such as `HtmlAndText`.
-    pub track_links: Option<String>,
-    /// Whether only the first open of a message triggers the open webhook.
-    pub post_first_open_only: Option<bool>,
-    /// Legacy server-level webhook for bounces, without any credentials.
-    pub bounce_hook_url: Option<String>,
-    /// Legacy server-level webhook for opens, without any credentials.
-    pub open_hook_url: Option<String>,
-    /// Legacy server-level webhook for deliveries, without any credentials.
-    pub delivery_hook_url: Option<String>,
-    /// Legacy server-level webhook for clicks, without any credentials.
-    pub click_hook_url: Option<String>,
-    /// Legacy server-level webhook for inbound mail, without any credentials.
-    pub inbound_hook_url: Option<String>,
+use crate::{ReadsBounces, ReadsMessages, ReadsServer, ReadsStats, ReadsSuppressions, ReadsTemplates, ReadsWebhooks};
+
+/// Every capability the MCP server needs from Postmark.
+pub trait PostmarkGateway:
+    ReadsBounces + ReadsMessages + ReadsServer + ReadsStats + ReadsSuppressions + ReadsTemplates + ReadsWebhooks
+{
 }
 
-/// Reads the Postmark server the configured token belongs to.
-#[async_trait]
-pub trait ReadsServer: Send + Sync {
-    /// Fetches the current server, which also proves the token is accepted.
-    ///
-    /// # Errors
-    ///
-    /// Returns a [`GatewayError`] when the request is rejected, or Postmark
-    /// cannot be reached or understood.
-    async fn current_server(&self) -> Result<ServerSummary, GatewayError>;
+impl<T> PostmarkGateway for T where
+    T: ReadsBounces + ReadsMessages + ReadsServer + ReadsStats + ReadsSuppressions + ReadsTemplates + ReadsWebhooks
+{
 }
 
 /// A failure reaching or being served by Postmark.

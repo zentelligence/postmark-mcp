@@ -1,15 +1,16 @@
-//! Implements the domain ports against the Postmark API.
-//!
-//! Wire types here model only the response fields this server uses. Anything
-//! else in a response is discarded during decoding, which is how `ApiTokens` in
-//! the `/server` response stays out of this process's data entirely.
+//! Implements the domain ports against the Postmark API. Result types decode
+//! straight from responses, so each method only names the route and parameters.
 
 use async_trait::async_trait;
-use postmark_mcp_core::{GatewayError, ReadsServer, ServerSummary};
-use reqwest::Method;
+use postmark_mcp_core::{
+    BounceDump, BounceId, BounceList, BounceSearch, DeliveryStat, DeliveryStats, GatewayError, JsonObject,
+    MessageDetails, MessageList, MessageSearch, MessageStreamId, ReadsBounces, ReadsMessages, ReadsServer, ReadsStats,
+    ReadsSuppressions, ReadsTemplates, ReadsWebhooks, ResourceId, ServerSummary, StatsQuery, SuppressionList,
+    SuppressionQuery, Template, TemplateList, TemplateQuery, TemplateValidation, ValidationResult, WebhookList,
+};
 use serde::Deserialize;
-use url::Url;
 
+use crate::base_url::QueryParams;
 use crate::transport::HardenedTransport;
 
 /// The Postmark API, reached through a [`HardenedTransport`].
@@ -27,64 +28,155 @@ impl From<HardenedTransport> for PostmarkApi {
 #[async_trait]
 impl ReadsServer for PostmarkApi {
     async fn current_server(&self) -> Result<ServerSummary, GatewayError> {
-        let server: ServerResponse = self.transport.request(Method::GET, "/server").await?;
-        Ok(server.into())
+        self.transport.get(&["server"], &QueryParams::default()).await
     }
 }
 
-/// Response of `GET /server`.
+#[async_trait]
+impl ReadsTemplates for PostmarkApi {
+    async fn list_templates(&self, query: &TemplateQuery) -> Result<TemplateList, GatewayError> {
+        let params = QueryParams::default()
+            .with("count", query.page.count)
+            .with("offset", query.page.offset)
+            .with_optional("TemplateType", query.template_type)
+            .with_optional("LayoutTemplate", query.layout_template.as_ref());
+        self.transport.get(&["templates"], &params).await
+    }
+
+    async fn get_template(&self, id_or_alias: &ResourceId) -> Result<Template, GatewayError> {
+        self.transport
+            .get(&["templates", id_or_alias.as_ref()], &QueryParams::default())
+            .await
+    }
+
+    async fn validate_template(&self, content: &TemplateValidation) -> Result<ValidationResult, GatewayError> {
+        self.transport.post(&["templates", "validate"], content).await
+    }
+}
+
+#[async_trait]
+impl ReadsMessages for PostmarkApi {
+    async fn search_outbound_messages(&self, search: &MessageSearch) -> Result<MessageList, GatewayError> {
+        let params = QueryParams::default()
+            .with("count", search.page.count)
+            .with("offset", search.page.offset)
+            .with("messagestream", &search.message_stream)
+            .with_optional("recipient", search.recipient.as_ref())
+            .with_optional("fromemail", search.from_email.as_ref())
+            .with_optional("tag", search.tag.as_ref())
+            .with_optional("subject", search.subject.as_ref())
+            .with_optional("status", search.status)
+            .with_optional("fromdate", search.dates.from.as_ref())
+            .with_optional("todate", search.dates.to.as_ref());
+        self.transport.get(&["messages", "outbound"], &params).await
+    }
+
+    async fn message_details(&self, message_id: &ResourceId) -> Result<MessageDetails, GatewayError> {
+        self.transport
+            .get(
+                &["messages", "outbound", message_id.as_ref(), "details"],
+                &QueryParams::default(),
+            )
+            .await
+    }
+}
+
+/// Response of `GET /bounces/{id}/dump`.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-struct ServerResponse {
-    #[serde(rename = "ID")]
-    id: i64,
-    name: String,
-    color: Option<String>,
-    smtp_api_activated: Option<bool>,
-    inbound_address: Option<String>,
-    inbound_domain: Option<String>,
-    track_opens: Option<bool>,
-    track_links: Option<String>,
-    post_first_open_only: Option<bool>,
-    bounce_hook_url: Option<String>,
-    open_hook_url: Option<String>,
-    delivery_hook_url: Option<String>,
-    click_hook_url: Option<String>,
-    inbound_hook_url: Option<String>,
+struct DumpResponse {
+    #[serde(rename = "Body", default)]
+    body: Option<String>,
 }
 
-impl From<ServerResponse> for ServerSummary {
-    fn from(server: ServerResponse) -> Self {
-        Self {
-            id: server.id,
-            name: server.name,
-            color: present(server.color),
-            smtp_api_activated: server.smtp_api_activated,
-            inbound_address: present(server.inbound_address),
-            inbound_domain: present(server.inbound_domain),
-            track_opens: server.track_opens,
-            track_links: present(server.track_links),
-            post_first_open_only: server.post_first_open_only,
-            bounce_hook_url: without_credentials(server.bounce_hook_url),
-            open_hook_url: without_credentials(server.open_hook_url),
-            delivery_hook_url: without_credentials(server.delivery_hook_url),
-            click_hook_url: without_credentials(server.click_hook_url),
-            inbound_hook_url: without_credentials(server.inbound_hook_url),
-        }
+#[async_trait]
+impl ReadsBounces for PostmarkApi {
+    async fn search_bounces(&self, search: &BounceSearch) -> Result<BounceList, GatewayError> {
+        let params = QueryParams::default()
+            .with("count", search.page.count)
+            .with("offset", search.page.offset)
+            .with("messagestream", &search.message_stream)
+            .with_optional("type", search.bounce_type)
+            .with_optional("inactive", search.inactive)
+            .with_optional("emailFilter", search.email_filter.as_ref())
+            .with_optional("tag", search.tag.as_ref())
+            .with_optional("messageID", search.message_id.as_ref())
+            .with_optional("fromdate", search.dates.from.as_ref())
+            .with_optional("todate", search.dates.to.as_ref());
+        self.transport.get(&["bounces"], &params).await
+    }
+
+    async fn bounce_dump(&self, bounce_id: BounceId) -> Result<BounceDump, GatewayError> {
+        let id = bounce_id.to_string();
+        let response: DumpResponse = self
+            .transport
+            .get(&["bounces", &id, "dump"], &QueryParams::default())
+            .await?;
+        // Postmark reports an unavailable dump as an empty body.
+        let body = response.body.filter(|text| !text.is_empty());
+        Ok(BounceDump {
+            bounce_id: bounce_id.get(),
+            available: body.is_some(),
+            body,
+        })
     }
 }
 
-/// Postmark reports an unset string as empty rather than null.
-fn present(value: Option<String>) -> Option<String> {
-    value.filter(|text| !text.is_empty())
+#[async_trait]
+impl ReadsSuppressions for PostmarkApi {
+    async fn list_suppressions(&self, query: &SuppressionQuery) -> Result<SuppressionList, GatewayError> {
+        let params = QueryParams::default()
+            .with_optional("SuppressionReason", query.reason)
+            .with_optional("Origin", query.origin)
+            .with_optional("EmailAddress", query.email_address.as_ref())
+            .with_optional("fromdate", query.dates.from.as_ref())
+            .with_optional("todate", query.dates.to.as_ref());
+        let stream = query.message_stream.as_ref();
+        let mut list: SuppressionList = self
+            .transport
+            .get(&["message-streams", stream, "suppressions", "dump"], &params)
+            .await?;
+        stream.clone_into(&mut list.message_stream);
+        Ok(list)
+    }
 }
 
-/// Removes basic auth credentials, which a hook URL may legitimately embed but
-/// which must not reach a tool result. A value that cannot be parsed could hide
-/// credentials in a form this cannot see, so it is withheld entirely.
-fn without_credentials(value: Option<String>) -> Option<String> {
-    let mut url = Url::parse(&present(value)?).ok()?;
-    url.set_username("").ok()?;
-    url.set_password(None).ok()?;
-    Some(url.into())
+/// Route of each statistic. `open_read_times` is the exception among these, in
+/// that Postmark's API reference does not list it; the official server uses it.
+fn stat_route(stat: DeliveryStat) -> &'static [&'static str] {
+    match stat {
+        DeliveryStat::Summary | DeliveryStat::Overview => &["stats", "outbound"],
+        DeliveryStat::Sent => &["stats", "outbound", "sends"],
+        DeliveryStat::Bounces => &["stats", "outbound", "bounces"],
+        DeliveryStat::Spam => &["stats", "outbound", "spam"],
+        DeliveryStat::Tracked => &["stats", "outbound", "tracked"],
+        DeliveryStat::Opens => &["stats", "outbound", "opens"],
+        DeliveryStat::OpenPlatforms => &["stats", "outbound", "opens", "platforms"],
+        DeliveryStat::OpenClients => &["stats", "outbound", "opens", "emailclients"],
+        DeliveryStat::OpenReadTimes => &["stats", "outbound", "opens", "readtimes"],
+        DeliveryStat::Clicks => &["stats", "outbound", "clicks"],
+        DeliveryStat::ClickBrowsers => &["stats", "outbound", "clicks", "browserfamilies"],
+        DeliveryStat::ClickPlatforms => &["stats", "outbound", "clicks", "platforms"],
+        DeliveryStat::ClickLocation => &["stats", "outbound", "clicks", "location"],
+    }
+}
+
+#[async_trait]
+impl ReadsStats for PostmarkApi {
+    async fn delivery_stats(&self, query: &StatsQuery) -> Result<DeliveryStats, GatewayError> {
+        let params = QueryParams::default()
+            .with_optional("tag", query.tag.as_ref())
+            .with_optional("messagestream", query.message_stream.as_ref())
+            .with_optional("fromdate", query.dates.from.as_ref())
+            .with_optional("todate", query.dates.to.as_ref());
+        let response: JsonObject = self.transport.get(stat_route(query.stat), &params).await?;
+        Ok((query.stat, response).into())
+    }
+}
+
+#[async_trait]
+impl ReadsWebhooks for PostmarkApi {
+    async fn list_webhooks(&self, message_stream: Option<&MessageStreamId>) -> Result<WebhookList, GatewayError> {
+        let params = QueryParams::default().with_optional("MessageStream", message_stream);
+        self.transport.get(&["webhooks"], &params).await
+    }
 }

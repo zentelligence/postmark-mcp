@@ -54,26 +54,56 @@ fn malformed_urls_are_rejected() {
 }
 
 #[test]
-fn request_paths_resolve_on_the_api_origin() -> Result<(), BaseUrlError> {
+fn requests_are_built_on_the_api_origin() -> Result<(), BaseUrlError> {
     let base = ApiBaseUrl::try_from(POSTMARK_API_ORIGIN)?;
+    let query = QueryParams::default()
+        .with("count", 10)
+        .with_optional("tag", None::<&str>);
 
     assert_eq!(
-        base.resolve("/messages/outbound?count=10")?.as_str(),
+        base.endpoint(&["messages", "outbound"], &query)?.as_str(),
         "https://api.postmarkapp.com/messages/outbound?count=10"
     );
     Ok(())
 }
 
 #[test]
-fn request_paths_cannot_escape_the_api_origin() -> Result<(), BaseUrlError> {
+fn requests_with_no_query_have_no_trailing_separator() -> Result<(), BaseUrlError> {
     let base = ApiBaseUrl::try_from(POSTMARK_API_ORIGIN)?;
 
-    for escaping in [
+    assert_eq!(
+        base.endpoint(&["server"], &QueryParams::default())?.as_str(),
+        "https://api.postmarkapp.com/server"
+    );
+    Ok(())
+}
+
+#[test]
+fn values_shaped_like_urls_cannot_leave_the_api_origin() -> Result<(), BaseUrlError> {
+    let base = ApiBaseUrl::try_from(POSTMARK_API_ORIGIN)?;
+
+    for hostile in [
         "//evil.example.com/server",
-        "https://evil.example.com/server",
-        "http://api.postmarkapp.com/",
+        "https://evil.example.com/",
+        "@evil.example.com",
+        "a/../../b",
     ] {
-        assert_eq!(base.resolve(escaping), Err(BaseUrlError::OutsideOrigin), "{escaping}");
+        let url = base.endpoint(&["templates", hostile], &QueryParams::default())?;
+
+        assert_eq!(url.host_str(), Some("api.postmarkapp.com"), "{hostile}");
+        assert_eq!(url.path_segments().map(Iterator::count), Some(2), "{hostile}");
     }
+    Ok(())
+}
+
+#[test]
+fn query_values_cannot_add_parameters() -> Result<(), BaseUrlError> {
+    let base = ApiBaseUrl::try_from(POSTMARK_API_ORIGIN)?;
+    let query = QueryParams::default().with("tag", "a&count=500#b");
+
+    let url = base.endpoint(&["bounces"], &query)?;
+
+    assert_eq!(url.query_pairs().count(), 1);
+    assert_eq!(url.fragment(), None);
     Ok(())
 }

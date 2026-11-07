@@ -4,7 +4,7 @@ This file governs all work in this repository. More specific `AGENTS.md` files m
 
 ## Mission and current state
 
-Build `postmark-mcp`, a Rust MCP server for the Postmark email API. The workspace scaffold and one vertical slice (`get_server_info`) are in place; [`docs/roadmap.md`](docs/roadmap.md) records what is delivered and what comes next.
+Build `postmark-mcp`, a Rust MCP server for the Postmark email API. The read-only tools are delivered; [`docs/roadmap.md`](docs/roadmap.md) records what is delivered and what comes next.
 
 Behaviour is grounded in three sources: the roadmap, the [Postmark API documentation](https://postmarkapp.com/developer), and ActiveCampaign's `postmark-mcp` (Node.js), which informs the tool surface and configuration. If a behaviour is not settled by those, record the uncertainty and ask. Never invent missing semantics.
 
@@ -31,7 +31,7 @@ Prior existence of an error, deviation, or violation is no excuse for perpetuati
 - Do not add production behaviour until a focused test has failed for the expected reason. Bug fixes require a regression test.
 - Keep dependency direction hexagonal and strictly towards `postmark-mcp-core`. Library crates never depend on `postmark-mcp`.
 - All Postmark requests go through `HardenedTransport`. Never construct another HTTP client for Postmark.
-- The server token never appears in a log, error, tool result, or debug output. Tool results never include Postmark `ApiTokens`, or credentials embedded in URLs.
+- The server token never appears in a log, error, tool result, or debug output. Tool results never include Postmark `ApiTokens`, webhook passwords or headers, or the credentials, query, or fragment of a URL from Postmark.
 - Production code contains no `unsafe`, `unwrap`, or `expect`. Use typed errors and preserve stable machine-readable error codes.
 - Implement every project type conversion with `From<T>` when infallible or `TryFrom<T>` when fallible. Never create free-form conversion functions.
 - Use `tracing` for runtime diagnostics, to stderr only. Stdout is reserved for MCP traffic, and for the output of CLI subcommands.

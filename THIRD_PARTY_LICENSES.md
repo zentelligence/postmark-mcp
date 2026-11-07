@@ -10,7 +10,7 @@ cargo about generate about.hbs -o THIRD_PARTY_LICENSES.md --workspace
 
 ## Licence summary
 
-- Apache License 2.0 (160 crate(s))
+- Apache License 2.0 (162 crate(s))
 - MIT License (49 crate(s))
 - Unicode License v3 (19 crate(s))
 - ISC License (4 crate(s))
@@ -3274,6 +3274,8 @@ Used by:
 - `rustls` 0.23.46
 - `security-framework-sys` 2.17.0
 - `security-framework` 3.7.0
+- `serde_with` 3.24.0
+- `serde_with_macros` 3.24.0
 - `signal-hook-registry` 1.4.8
 - `simd_cesu8` 1.2.0
 - `smallvec` 1.16.5
@@ -4135,9 +4137,9 @@ limitations under the License.
 ### Apache License 2.0
 
 Used by:
-- `postmark-mcp` 0.1.0
-- `postmark-mcp-client` 0.1.0
-- `postmark-mcp-core` 0.1.0
+- `postmark-mcp` 0.2.0
+- `postmark-mcp-client` 0.2.0
+- `postmark-mcp-core` 0.2.0
 - `android_system_properties` 0.1.6
 - `async-trait` 0.1.92
 - `aws-lc-sys` 0.47.0
