@@ -4,7 +4,7 @@ This file governs all work in this repository. More specific `AGENTS.md` files m
 
 ## Mission and current state
 
-Build `postmark-mcp`, a Rust MCP server for the Postmark email API. The read-only tools and delivery diagnosis are delivered; [`docs/roadmap.md`](docs/roadmap.md) records what is delivered and what comes next.
+Build `postmark-mcp`, a Rust MCP server for the Postmark email API. The read-only tools, delivery diagnosis, and sending are delivered; [`docs/roadmap.md`](docs/roadmap.md) records what is delivered and what comes next.
 
 Behaviour is grounded in three sources: the roadmap, the [Postmark API documentation](https://postmarkapp.com/developer), and ActiveCampaign's `postmark-mcp` (Node.js), which informs the tool surface and configuration. If a behaviour is not settled by those, record the uncertainty and ask. Never invent missing semantics.
 

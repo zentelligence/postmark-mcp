@@ -14,7 +14,7 @@ Review the diff, not the author's intent. Report concrete findings ordered by se
 - Does every request go through `HardenedTransport`, and stay on the configured origin?
 - Can a tool result, log, or error disclose a token, an email body, or a full address?
 - Do values from tool calls reach request paths and headers only after validation?
-- Are limits enforced before allocation, and are destructive tools annotated as such?
+- Are limits enforced before allocation, and are annotations set by the MCP specification's definitions?
 
 ## Architecture and Rust
 

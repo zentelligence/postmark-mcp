@@ -6,9 +6,10 @@
 //! entries carry across unchanged.
 
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 use postmark_mcp_client::{ApiBaseUrl, BaseUrlError, POSTMARK_API_ORIGIN};
-use postmark_mcp_core::{AgentLabel, MessageStreamId, SenderAddress, ServerToken, ValueError};
+use postmark_mcp_core::{AgentLabel, MessageStreamId, RecipientAllowlist, SenderAddress, ServerToken, ValueError};
 use thiserror::Error;
 
 const SERVER_TOKEN: &str = "POSTMARK_SERVER_TOKEN";
@@ -17,6 +18,10 @@ const DEFAULT_MESSAGE_STREAM: &str = "DEFAULT_MESSAGE_STREAM";
 const AGENT_LABEL: &str = "AGENT_LABEL";
 const API_BASE_URL: &str = "POSTMARK_API_BASE_URL";
 const SKIP_VERIFY: &str = "POSTMARK_SKIP_VERIFY";
+const READ_ONLY: &str = "POSTMARK_READ_ONLY";
+const RECIPIENT_ALLOWLIST: &str = "POSTMARK_RECIPIENT_ALLOWLIST";
+const LOG_FILE: &str = "LOG_FILE";
+const LOG_EMAIL_FULL: &str = "LOG_EMAIL_FULL";
 
 /// A snapshot of environment variables. Passing this in, rather than reading
 /// the process environment, keeps configuration deterministic under test.
@@ -28,6 +33,14 @@ impl Environment {
     /// commonly template an `env` block and leave unused entries blank.
     fn get(&self, name: &str) -> Option<&str> {
         self.0.get(name).map(String::as_str).filter(|value| !value.is_empty())
+    }
+
+    fn flag(&self, name: &'static str) -> Result<bool, ConfigError> {
+        match self.get(name) {
+            None | Some("false") => Ok(false),
+            Some("true") => Ok(true),
+            Some(_) => Err(ConfigError::InvalidFlag { name }),
+        }
     }
 
     fn require(&self, name: &'static str, remediation: &'static str) -> Result<String, ConfigError> {
@@ -88,6 +101,14 @@ pub struct Config {
     pub api_base_url: ApiBaseUrl,
     /// Whether to skip checking the token against Postmark at startup.
     pub skip_verify: bool,
+    /// Whether to remove the send tools from the catalogue.
+    pub read_only: bool,
+    /// Restricts where mail may be sent.
+    pub recipient_allowlist: Option<RecipientAllowlist>,
+    /// File tool calls are appended to, as well as stderr.
+    pub log_file: Option<PathBuf>,
+    /// Whether to log addresses in full rather than masked.
+    pub log_email_full: bool,
 }
 
 impl TryFrom<&Environment> for Config {
@@ -124,11 +145,15 @@ impl TryFrom<&Environment> for Config {
                 .get(API_BASE_URL)
                 .unwrap_or(POSTMARK_API_ORIGIN)
                 .try_into()?,
-            skip_verify: match environment.get(SKIP_VERIFY) {
-                None | Some("false") => false,
-                Some("true") => true,
-                Some(_) => return Err(ConfigError::InvalidFlag { name: SKIP_VERIFY }),
-            },
+            skip_verify: environment.flag(SKIP_VERIFY)?,
+            read_only: environment.flag(READ_ONLY)?,
+            recipient_allowlist: environment
+                .get(RECIPIENT_ALLOWLIST)
+                .map(RecipientAllowlist::try_from)
+                .transpose()
+                .map_err(invalid(RECIPIENT_ALLOWLIST))?,
+            log_file: environment.get(LOG_FILE).map(PathBuf::from),
+            log_email_full: environment.flag(LOG_EMAIL_FULL)?,
         })
     }
 }

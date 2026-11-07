@@ -8,7 +8,7 @@ The MCP surface is a public compatibility boundary. Treat tool names, input sche
 - Keep one domain operation behind all transports.
 - Deserialise into argument types with `deny_unknown_fields`, then convert to validated domain queries with `TryFrom`, so bad input gets the stable `invalid/argument` code. Never use ad hoc conversion functions at this boundary. Values rmcp itself rejects while deserialising, such as an unknown enum value, get `isError` without a code.
 - Return structured results. Do not make clients parse prose to obtain fields.
-- Set all four annotations (`read_only_hint`, `destructive_hint`, `idempotent_hint`, `open_world_hint`) honestly, because hosts use them to decide when to ask the operator. Sending email is never idempotent.
+- Set all four annotations (`read_only_hint`, `destructive_hint`, `idempotent_hint`, `open_world_hint`) by the MCP specification's definitions, because hosts use them to decide when to ask the operator. `destructive_hint` means deleting or overwriting existing state, not being irreversible: sending email is additive, so it is `false`, while deleting a template is `true`. Sending email is never idempotent.
 - Declare `input_schema = input_schema_for::<Args>()` and `output_schema = fallible_output_schema_for::<T>()`, and return `Result<Json<T>, ToolFailure>`. These keep schemas free of nullable types and unions, which several hosts mishandle, and `catalogue_contract.rs` enforces it.
 - A stream filter falls back to `DEFAULT_MESSAGE_STREAM` where Postmark would otherwise assume one stream. Where omitting it means all streams, as with statistics and webhooks, leave it omitted.
 - Preserve stable machine-readable error codes, and provide an actionable message and remediation hint.

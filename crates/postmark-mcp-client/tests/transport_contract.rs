@@ -5,7 +5,10 @@ use std::error::Error;
 use std::time::Duration;
 
 use postmark_mcp_client::{ApiBaseUrl, HardenedTransport, PostmarkApi, TransportConfig};
-use postmark_mcp_core::{AgentLabel, GatewayError, ReadsServer, ServerSummary, ServerToken};
+use postmark_mcp_core::{
+    AgentLabel, EmailRequest, EnvelopeRequest, GatewayError, MessageStreamId, OutboundEmail, ReadsServer, SendDefaults,
+    SendsEmail, ServerSummary, ServerToken,
+};
 use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -361,5 +364,57 @@ async fn undecodable_success_responses_are_reported() -> TestResult {
     let error = failure_for(ResponseTemplate::new(200).set_body_string("not json")).await?;
 
     assert!(matches!(error, Some(GatewayError::InvalidResponse { .. })), "{error:?}");
+    Ok(())
+}
+
+fn email() -> Result<OutboundEmail, Box<dyn Error>> {
+    let stream = MessageStreamId::try_from("outbound".to_owned())?;
+    let request = EmailRequest {
+        envelope: EnvelopeRequest {
+            to: vec!["to@example.com".to_owned()],
+            ..EnvelopeRequest::default()
+        },
+        subject: "Hello".to_owned(),
+        html_body: None,
+        text_body: Some("Hi".to_owned()),
+    };
+    let defaults = SendDefaults {
+        sender: "sender@example.com",
+        message_stream: &stream,
+    };
+    Ok(OutboundEmail::try_from((request, defaults))?)
+}
+
+#[tokio::test]
+async fn a_send_that_times_out_has_an_unknown_outcome() -> TestResult {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/email"))
+        .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(30)))
+        .mount(&server)
+        .await;
+    let mut config = config(&server)?;
+    config.timeout = Duration::from_millis(50);
+
+    let error = api(config)?.send_email(&email()?).await.err();
+
+    assert_eq!(error, Some(GatewayError::Timeout));
+    assert!(error.is_some_and(|error| !error.send_outcome_is_known()));
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_send_postmark_accepted_without_an_id_has_an_unknown_outcome() -> TestResult {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/email"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ErrorCode": 0, "Message": "OK"})))
+        .mount(&server)
+        .await;
+
+    let error = api(config(&server)?)?.send_email(&email()?).await.err();
+
+    assert!(matches!(error, Some(GatewayError::InvalidResponse { .. })), "{error:?}");
+    assert!(error.is_some_and(|error| !error.send_outcome_is_known()));
     Ok(())
 }

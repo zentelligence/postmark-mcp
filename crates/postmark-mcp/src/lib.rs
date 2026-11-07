@@ -8,7 +8,9 @@ mod config;
 mod schema;
 mod server;
 mod tool_error;
+mod tool_log;
 mod tools;
 
 pub use config::{Config, ConfigError, Environment};
-pub use server::{PostmarkMcpServer, ServerDefaults};
+pub use server::{PostmarkMcpServer, SendPolicy, ServerDefaults};
+pub use tool_log::ToolLog;

@@ -7,7 +7,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use postmark_mcp::{Config, Environment, PostmarkMcpServer, ServerDefaults};
+use postmark_mcp::{Config, Environment, PostmarkMcpServer, SendPolicy, ServerDefaults, ToolLog};
 use postmark_mcp_client::{HardenedTransport, PostmarkApi, TransportConfig};
 use postmark_mcp_core::{GatewayError, ReadsServer, ServerSummary};
 use rmcp::ServiceExt;
@@ -112,7 +112,14 @@ async fn serve(api: Arc<PostmarkApi>, config: &Config) -> Result<(), Box<dyn Err
         tracing::info!(server_id = server.id, "token accepted by Postmark");
     }
 
-    let server = PostmarkMcpServer::new(api, ServerDefaults::from(config));
+    let log = ToolLog::open(config.log_file.as_deref(), config.log_email_full)
+        .map_err(|error| format!("LOG_FILE could not be opened: {error}"))?;
+    if config.read_only {
+        tracing::info!("POSTMARK_READ_ONLY is set: the send tools are not available");
+    }
+    let server = PostmarkMcpServer::new(api, ServerDefaults::from(config))
+        .with_send_policy(SendPolicy::from(config))
+        .with_tool_log(log);
     server.serve(stdio()).await?.waiting().await?;
     Ok(())
 }

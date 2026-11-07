@@ -14,7 +14,7 @@ Tests prove externally meaningful behaviour and architectural invariants. A larg
 ## Required patterns
 
 - Never contact the real Postmark API, and never use a real token, from an automated test.
-- Spawned binaries use `env_clear`, so tests never depend on the operator's environment.
+- Spawned binaries use `env_clear`, so tests never depend on the operator's environment, and a closed stdin, so a server that should have refused to start ends rather than hangs.
 - Assert prohibited side effects as well as results: no request reached the redirect target, no token in stderr, nothing unexpected on stdout.
 - For failures, assert the stable code and relevant structured fields.
 - Prove a security test can fail. Weaken the guard, confirm the test goes red, then restore it and `touch` the file: a restored mtime makes cargo reuse the mutated build.

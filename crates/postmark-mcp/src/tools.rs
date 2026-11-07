@@ -8,6 +8,7 @@
 mod bounces;
 mod diagnosis;
 mod messages;
+mod sending;
 mod server;
 mod stats;
 mod suppressions;

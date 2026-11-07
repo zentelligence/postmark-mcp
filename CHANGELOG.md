@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-07
+
+### Added
+
+- `send_email`, `send_email_with_template`, `send_batch`, and `send_batch_with_template`. Every message is validated, and every recipient checked against policy, before any request is made, so a batch is sent whole or not at all.
+- `send/outcome-unknown`, for a send that failed in a way that leaves it unclear whether the email went out. Its remediation says to check before resending, never to retry.
+- `POSTMARK_READ_ONLY`, which removes the send tools from the catalogue.
+- `POSTMARK_RECIPIENT_ALLOWLIST`, which restricts recipients to listed addresses and domains, and `policy/recipient-not-allowed` for a refusal.
+- Tool call logging to stderr, and to `LOG_FILE` if set, with message content reduced to its size and addresses masked unless `LOG_EMAIL_FULL` is `true`.
+- Send tools are annotated as not idempotent, and, as MCP defines it, not destructive, since sending adds and overwrites nothing. A host's own settings decide whether it asks before a send.
+- Tests proving MCP protocol revision 2026-07-28, through `server/discover`, and every earlier revision, through `initialize`.
+
+### Security
+
+- Open and link tracking are never set, so each Postmark server's own settings decide. The official server always turns both on.
+- Addresses with commas, semicolons, or quotes, or with address characters such as `@` or `:` in a display name, are refused, since each can hide a recipient from the allowlist.
+- The tool log keeps only arguments known to describe a request, and reduces everything else to its size, so content under an unexpected name, such as `textBody`, stays out.
+
 ## [0.3.0] - 2026-11-07
 
 ### Added

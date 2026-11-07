@@ -1,6 +1,6 @@
 # MCP Tools
 
-Tools are named in `snake_case`, as the direct translation of the official server's names. The server speaks MCP over stdio, using `rmcp` 3.9.0.
+Tools are named in `snake_case`, as the direct translation of the official server's names. The server speaks MCP over stdio, using `rmcp` 3.9.0. It supports protocol revision 2026-07-28, where a client starts with `server/discover`, and every earlier revision from 2024-11-05, where it starts with `initialize`. Tests prove each one through the real binary.
 
 ## Results and errors
 
@@ -25,10 +25,12 @@ Every tool returns structured content. A failure is a tool result with `isError`
 | `postmark/invalid-response` | A successful response could not be understood. |
 | `server/invalid-request` | The request could not be built, because of a defect in this server. |
 | `invalid/argument` | An argument was refused before any request was made. |
+| `send/outcome-unknown` | A send failed in a way that leaves it unclear whether the email went out. Check with `search_outbound_messages` before resending. |
+| `policy/recipient-not-allowed` | A recipient is outside `POSTMARK_RECIPIENT_ALLOWLIST`, so nothing was sent. |
 
 An argument of the wrong type, an unknown argument, or a value outside a fixed list is rejected by the MCP SDK, as a tool result with `isError` set and no `code`.
 
-Every tool is read-only, and unset result fields are omitted. All dates are `YYYY-MM-DD`, inclusive, and Postmark interprets them in Eastern Time.
+Unset result fields are omitted. All dates are `YYYY-MM-DD`, inclusive, and Postmark interprets them in Eastern Time.
 
 ## Available
 
@@ -177,14 +179,51 @@ This differs from the official server in several ways, all to avoid a confident 
 - There is no default date window, so an older message is still found.
 - Recommendations name only tools this server has.
 
+## Sending
+
+These four tools are left out entirely when `POSTMARK_READ_ONLY` is `true`. They are annotated as not read-only and not idempotent, since calling one twice sends twice. They are not marked destructive, because in MCP's terms sending is additive: it deletes and overwrites nothing. Whether a host asks before a send is up to its own settings, which an automated deployment can set to allow the send tools outright.
+
+Common to all four:
+
+- Every message is validated, and every recipient checked against `POSTMARK_RECIPIENT_ALLOWLIST`, before any request is made. In a batch, one problem refuses the whole batch, nothing is sent, and the failure names the message, counting from 0.
+- `to`, `cc`, and `bcc` are advertised as arrays of addresses. A single address given as a string is also accepted. An address is `name@example.com` or `Name <name@example.com>`. Commas, semicolons, and quotes are refused, as are characters with meaning in an address header, such as `@`, `:`, and brackets, within a display name, because each can hide a recipient.
+- A message has at most 50 recipients across `to`, `cc`, and `bcc`. A subject is at most 2,000 characters, and a tag at most 1,000.
+- `from` defaults to `DEFAULT_SENDER_EMAIL`, and the stream is always `DEFAULT_MESSAGE_STREAM`.
+- Open and link tracking are not set, so the Postmark server's own settings decide. The official server always turns both on.
+- A send is never retried. If Postmark may have received it, the failure is `send/outcome-unknown`.
+
+### `send_email`
+
+Takes `to`, `subject`, at least one of `text_body` and `html_body`, and optionally `from`, `cc`, `bcc`, `reply_to`, and `tag`. Returns `message_id`, `to`, and `submitted_at`.
+
+### `send_email_with_template`
+
+Takes `to`, exactly one of `template_id` and `template_alias`, `template_model`, and optionally `from`, `cc`, `bcc`, `reply_to`, and `tag`. Returns the same as `send_email`.
+
+### `send_batch`
+
+Takes `messages`, from 1 to 500, each with the arguments of `send_email`.
+
+### `send_batch_with_template`
+
+Takes exactly one of `template_id` and `template_alias`, optional shared `from` and `tag`, and `recipients`, from 1 to 500, each with `to`, `template_model`, and optionally `from`, `cc`, `bcc`, `reply_to`, and `tag`. A recipient's `from` or `tag` overrides the shared one.
+
+### Batch results
+
+Postmark accepts or refuses each message in a batch on its own, so a batch succeeds as a call even if some messages fail.
+
+| Field | Description |
+| --- | --- |
+| `total` | Messages in the request. |
+| `succeeded`, `failed` | Messages Postmark accepted and refused. |
+| `unaccounted` | Messages Postmark gave no clear answer for. Treat these as unknown, and check before resending. |
+| `results` | Each answer in request order, with `index`, `to`, `error_code`, `message`, and, if accepted, `message_id` and `submitted_at`. |
+
 ## Planned
+
 
 | Tool | Official name | Stage |
 | --- | --- | --- |
-| `send_email` | `sendEmail` | 3 |
-| `send_email_with_template` | `sendEmailWithTemplate` | 3 |
-| `send_batch` | `sendBatch` | 3 |
-| `send_batch_with_template` | `sendBatchWithTemplate` | 3 |
 | `create_template` | `createTemplate` | 4 |
 | `edit_template` | `editTemplate` | 4 |
 | `delete_template` | `deleteTemplate` | 4 |

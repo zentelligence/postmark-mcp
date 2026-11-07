@@ -260,3 +260,82 @@ fn recipient_matching_sees_through_display_names() -> Result<(), ValueError> {
     assert!(!recipient.matches("alice@example.com <malice@example.com>"));
     Ok(())
 }
+
+#[test]
+fn mail_addresses_expose_where_mail_really_goes() -> Result<(), ValueError> {
+    let address = |value: &str| MailAddress::try_from(("to", value.to_owned()));
+
+    assert_eq!(address("a@example.com")?.bare(), "a@example.com");
+    assert_eq!(address("Ann Lee <a@example.com>")?.bare(), "a@example.com");
+    assert_eq!(
+        address("Ann Lee <a@example.com>")?.to_string(),
+        "Ann Lee <a@example.com>"
+    );
+    Ok(())
+}
+
+#[test]
+fn mail_addresses_refuse_anything_that_could_hide_a_recipient() {
+    for value in [
+        "",
+        "nobody",
+        "a@b.com, c@d.com",
+        "a@b.com; c@d.com",
+        "\"a@b.com\" <c@d.com>",
+        "a@b.com\nBcc: c@d.com",
+        "Name <a@b.com> extra",
+        "<a@b.com> <c@d.com>",
+        "Name <nobody>",
+        "friend@a.com <stranger@b.com>",
+        "grp: evil@evil.com <ok@ok.com>",
+        "(evil@evil.com) <ok@ok.com>",
+        "a\\@evil.com <ok@ok.com>",
+        "x@evil.com: <ok@ok.com>",
+        "[x] <ok@ok.com>",
+    ] {
+        assert_eq!(
+            MailAddress::try_from(("to", value.to_owned())),
+            Err(ValueError::MalformedAddress { field: "to" }),
+            "{value}"
+        );
+    }
+    let too_long = format!("{}@example.com", "x".repeat(250));
+    assert!(MailAddress::try_from(("to", too_long)).is_err());
+}
+
+#[test]
+fn allowlists_match_whole_addresses_and_whole_domains() -> Result<(), ValueError> {
+    let list = RecipientAllowlist::try_from("Friend@Elsewhere.com, @Example.com")?;
+    let permits = |value: &str| MailAddress::try_from(("to", value.to_owned())).map(|address| list.permits(&address));
+
+    assert!(permits("friend@elsewhere.com")?);
+    assert!(permits("FRIEND@ELSEWHERE.COM")?);
+    assert!(permits("anyone@example.com")?);
+    assert!(!permits("other@elsewhere.com")?);
+    assert!(!permits("a@sub.example.com")?);
+    assert!(!permits("a@example.com.evil.com")?);
+    assert!(!permits("a@notexample.com")?);
+    Ok(())
+}
+
+#[test]
+fn allowlists_refuse_unusable_entries() {
+    for value in [
+        "nobody",
+        "@",
+        "a@b.com,,c@d.com",
+        "a@b.com,",
+        "@a@b.com",
+        "@ example.com",
+        "@*.example.com",
+        "@example.com>",
+        "@.example.com",
+        "@example",
+    ] {
+        assert_eq!(
+            RecipientAllowlist::try_from(value),
+            Err(ValueError::MalformedAllowlistEntry),
+            "{value:?}"
+        );
+    }
+}

@@ -50,6 +50,8 @@ A tool call flows: rmcp, arguments in `tools/<area>.rs`, `TryFrom` to a validate
 - The orphan rule shapes two conversions: `transport.rs` wraps `reqwest::Error` in `RequestFailure`, and tools wrap arguments in `WithDefaultStream`.
 - Result types need `#[skip_serializing_none]` above their derives. `schema.rs` removes nullability from schemas, so a `null` in a result would contradict the advertised schema.
 - A result type's top-level field cannot be called `code`, `message`, or `remediation`, because `fallible_output_schema_for` merges it with `ToolFailure`. `every_output_definition_is_used` and the type check in `success` catch this.
+- `PostmarkMcpServer` overrides `call_tool` to log every call, so `#[tool_handler]` generates only `list_tools` and `get_tool`.
+- `send_policy_contract.rs` drives the binary, because the send policy and logging come from the environment.
 - Edit scripts must assert their patterns match, because `cargo fmt` rewraps code.
 - Wiremock's path matcher is case-sensitive, but Postmark's API is not.
 - `vocabulary!` variants must stay undocumented: a doc comment turns the advertised `enum` into a `oneOf` of consts.

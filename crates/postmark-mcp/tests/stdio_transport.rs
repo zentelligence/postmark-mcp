@@ -4,9 +4,9 @@
 use std::error::Error;
 use std::process::Output;
 
-use rmcp::ServiceExt;
-use rmcp::model::{CallToolRequestParams, ProtocolVersion};
+use rmcp::model::{CallToolRequestParams, ClientConfig, ProtocolVersion};
 use rmcp::transport::TokioChildProcess;
+use rmcp::{ClientHandler, ClientLifecycleMode, ClientServiceExt, ServiceExt};
 use serde_json::{Map, json};
 use tokio::process::Command;
 use wiremock::matchers::{header, method, path};
@@ -141,5 +141,104 @@ async fn doctor_fails_with_remediation_when_the_token_is_rejected() -> TestResul
     assert!(!output.status.success());
     assert!(stderr(&output).contains("POSTMARK_SERVER_TOKEN"));
     assert!(!stderr(&output).contains(TOKEN));
+    Ok(())
+}
+
+/// A client that brings nothing but the protocol, so the lifecycle under test
+/// is the only variable.
+#[derive(Clone, Default)]
+struct PlainClient;
+
+impl ClientHandler for PlainClient {}
+
+/// A client that asks for one protocol revision through `initialize`.
+#[derive(Clone)]
+struct VersionedClient(ProtocolVersion);
+
+impl ClientHandler for VersionedClient {
+    fn get_info(&self) -> ClientConfig {
+        let mut info = ClientConfig::default();
+        info.protocol_version = self.0.clone();
+        info
+    }
+}
+
+#[tokio::test]
+async fn serves_a_2026_07_28_client_that_starts_with_discovery_instead_of_initialize() -> TestResult {
+    let postmark = healthy_postmark().await;
+    let transport = TokioChildProcess::new(binary(&postmark.uri()))?;
+
+    let client = PlainClient
+        .serve_with_lifecycle(
+            transport,
+            ClientLifecycleMode::Discover {
+                preferred_versions: vec![ProtocolVersion::V_2026_07_28],
+            },
+        )
+        .await?;
+
+    let info = client.peer_info().ok_or("server sent no discovery result")?;
+    assert_eq!(info.protocol_version, ProtocolVersion::V_2026_07_28);
+    let implementation = info
+        .server_info
+        .as_ref()
+        .ok_or("server sent no implementation details")?;
+    assert_eq!(implementation.name, "postmark-mcp");
+
+    let tools = client.list_all_tools().await?;
+    let result = client
+        .call_tool(CallToolRequestParams::new("get_server_info").with_arguments(Map::new()))
+        .await?;
+    client.cancel().await?;
+
+    assert!(tools.iter().any(|tool| tool.name == "send_email"));
+    assert_eq!(result.is_error, Some(false));
+    assert!(serde_json::to_string(&result)?.contains("Production"));
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_client_offering_both_lifecycles_settles_on_2026_07_28() -> TestResult {
+    let postmark = healthy_postmark().await;
+    let transport = TokioChildProcess::new(binary(&postmark.uri()))?;
+
+    let client = PlainClient
+        .serve_with_lifecycle(
+            transport,
+            ClientLifecycleMode::Auto {
+                preferred_versions: vec![ProtocolVersion::V_2026_07_28],
+                legacy_version: Some(ProtocolVersion::V_2025_11_25),
+            },
+        )
+        .await?;
+
+    let negotiated = client.peer_info().map(|info| info.protocol_version.clone());
+    client.cancel().await?;
+
+    assert_eq!(negotiated, Some(ProtocolVersion::V_2026_07_28));
+    Ok(())
+}
+
+#[tokio::test]
+async fn still_serves_every_earlier_revision_over_initialize() -> TestResult {
+    for version in [
+        ProtocolVersion::V_2024_11_05,
+        ProtocolVersion::V_2025_03_26,
+        ProtocolVersion::V_2025_06_18,
+        ProtocolVersion::V_2025_11_25,
+    ] {
+        let postmark = healthy_postmark().await;
+        let transport = TokioChildProcess::new(binary(&postmark.uri()))?;
+
+        let client = VersionedClient(version.clone()).serve(transport).await?;
+        let negotiated = client.peer_info().map(|info| info.protocol_version.clone());
+        let result = client
+            .call_tool(CallToolRequestParams::new("get_server_info").with_arguments(Map::new()))
+            .await?;
+        client.cancel().await?;
+
+        assert_eq!(negotiated, Some(version.clone()), "{version:?}");
+        assert_eq!(result.is_error, Some(false), "{version:?}");
+    }
     Ok(())
 }

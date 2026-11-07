@@ -12,6 +12,7 @@ mod bounces;
 mod diagnosis;
 mod gateway;
 mod messages;
+mod sending;
 mod server;
 mod stats;
 mod suppressions;
@@ -28,6 +29,10 @@ pub use gateway::{GatewayError, PostmarkGateway};
 pub use messages::{
     MessageDetails, MessageEvent, MessageList, MessageSearch, MessageStatus, MessageSummary, ReadsMessages,
 };
+pub use sending::{
+    BatchItem, BatchOutcome, EmailRequest, Envelope, EnvelopeRequest, MAX_BATCH_MESSAGES, OutboundEmail, SendDefaults,
+    SendReceipt, SendsEmail, TemplateChoice, TemplatedEmail,
+};
 pub use server::{ReadsServer, ServerSummary};
 pub use stats::{DeliveryRates, DeliveryStat, DeliveryStats, ReadsStats, StatsQuery};
 pub use suppressions::{
@@ -38,8 +43,8 @@ pub use templates::{
     TemplateTypeFilter, TemplateValidation, ValidationError, ValidationResult,
 };
 pub use values::{
-    AgentLabel, BounceId, DateRange, FilterText, MessageStreamId, Page, PageRequest, PostmarkDate, RecipientAddress,
-    ResourceId, SenderAddress, ServerToken, ValueError,
+    AgentLabel, BounceId, DateRange, FilterText, MailAddress, MessageStreamId, Page, PageRequest, PostmarkDate,
+    RecipientAddress, RecipientAllowlist, ResourceId, SenderAddress, ServerToken, ValueError,
 };
 pub use webhooks::{ReadsWebhooks, Webhook, WebhookList};
 pub use wire::JsonObject;

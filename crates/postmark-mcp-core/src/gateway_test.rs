@@ -49,3 +49,20 @@ fn rejected_message_preserves_postmarks_explanation() {
         "Postmark rejected the request (HTTP 422, ErrorCode Some(300)): Invalid email request"
     );
 }
+
+#[test]
+fn only_a_refusal_before_acceptance_counts_as_certainly_not_sent() {
+    for error in every_error() {
+        let certain = matches!(
+            error,
+            GatewayError::Unauthorised
+                | GatewayError::RateLimited
+                | GatewayError::Rejected { .. }
+                | GatewayError::InvalidRequest { .. }
+        );
+
+        assert_eq!(error.send_outcome_is_known(), certain, "{error:?}");
+    }
+    // A timeout is the case that matters most: Postmark may have accepted it.
+    assert!(!GatewayError::Timeout.send_outcome_is_known());
+}

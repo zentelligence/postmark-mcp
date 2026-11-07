@@ -4,16 +4,32 @@
 
 use thiserror::Error;
 
-use crate::{ReadsBounces, ReadsMessages, ReadsServer, ReadsStats, ReadsSuppressions, ReadsTemplates, ReadsWebhooks};
+use crate::{
+    ReadsBounces, ReadsMessages, ReadsServer, ReadsStats, ReadsSuppressions, ReadsTemplates, ReadsWebhooks, SendsEmail,
+};
 
 /// Every capability the MCP server needs from Postmark.
 pub trait PostmarkGateway:
-    ReadsBounces + ReadsMessages + ReadsServer + ReadsStats + ReadsSuppressions + ReadsTemplates + ReadsWebhooks
+    ReadsBounces
+    + ReadsMessages
+    + ReadsServer
+    + ReadsStats
+    + ReadsSuppressions
+    + ReadsTemplates
+    + ReadsWebhooks
+    + SendsEmail
 {
 }
 
 impl<T> PostmarkGateway for T where
-    T: ReadsBounces + ReadsMessages + ReadsServer + ReadsStats + ReadsSuppressions + ReadsTemplates + ReadsWebhooks
+    T: ReadsBounces
+        + ReadsMessages
+        + ReadsServer
+        + ReadsStats
+        + ReadsSuppressions
+        + ReadsTemplates
+        + ReadsWebhooks
+        + SendsEmail
 {
 }
 
@@ -78,6 +94,17 @@ pub enum GatewayError {
 }
 
 impl GatewayError {
+    /// Whether a failed send certainly did not go out. Anything else leaves the
+    /// outcome unknown, such as a timeout after Postmark accepted the message, and
+    /// a resend then risks sending twice.
+    #[must_use]
+    pub fn send_outcome_is_known(&self) -> bool {
+        matches!(
+            self,
+            Self::Unauthorised | Self::RateLimited | Self::Rejected { .. } | Self::InvalidRequest { .. }
+        )
+    }
+
     /// Stable, machine-readable code for this failure. Part of the public MCP
     /// contract: never change an existing value.
     #[must_use]

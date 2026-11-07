@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use support::{TestResult, failure, list_tools};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-const DELIVERED_TOOLS: [&str; 12] = [
+const DELIVERED_TOOLS: [&str; 16] = [
     "diagnose_delivery",
     "get_bounce_dump",
     "get_delivery_stats",
@@ -18,7 +18,18 @@ const DELIVERED_TOOLS: [&str; 12] = [
     "list_webhooks",
     "search_bounces",
     "search_outbound_messages",
+    "send_batch",
+    "send_batch_with_template",
+    "send_email",
+    "send_email_with_template",
     "validate_template",
+];
+
+const SEND_TOOLS: [&str; 4] = [
+    "send_batch",
+    "send_batch_with_template",
+    "send_email",
+    "send_email_with_template",
 ];
 
 /// Collects every place a schema allows `null`, or uses array-form `type` or a
@@ -63,7 +74,7 @@ async fn catalogue_holds_exactly_the_delivered_tools() -> TestResult {
 }
 
 #[tokio::test]
-async fn every_tool_is_read_only_documented_and_closed_to_unknown_arguments() -> TestResult {
+async fn every_tool_is_honestly_annotated_documented_and_closed_to_unknown_arguments() -> TestResult {
     for tool in list_tools(&MockServer::start().await).await? {
         let name = &tool.name;
         assert!(
@@ -71,9 +82,12 @@ async fn every_tool_is_read_only_documented_and_closed_to_unknown_arguments() ->
             "{name}"
         );
         let annotations = tool.annotations.as_ref().ok_or("tool has no annotations")?;
-        assert_eq!(annotations.read_only_hint, Some(true), "{name}");
+        let sends = SEND_TOOLS.contains(&name.as_ref());
+        assert_eq!(annotations.read_only_hint, Some(!sends), "{name}");
+        // Sending is additive: it deletes and overwrites nothing, which is what MCP
+        // means by destructive. Repeating it sends again, so it is not idempotent.
         assert_eq!(annotations.destructive_hint, Some(false), "{name}");
-        assert_eq!(annotations.idempotent_hint, Some(true), "{name}");
+        assert_eq!(annotations.idempotent_hint, Some(!sends), "{name}");
         assert_eq!(annotations.open_world_hint, Some(true), "{name}");
         assert_eq!(
             tool.input_schema.get("additionalProperties"),

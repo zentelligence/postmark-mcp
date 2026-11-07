@@ -10,6 +10,9 @@ use thiserror::Error;
 /// Upper bound on [`AgentLabel`], which is sent on every API request.
 const MAX_AGENT_LABEL_LEN: usize = 128;
 
+/// Upper bound on one email address, as Postmark documents it.
+const MAX_ADDRESS_LEN: usize = 254;
+
 /// Upper bound on a free-text search filter.
 const MAX_FILTER_LEN: usize = 512;
 
@@ -88,6 +91,36 @@ pub enum ValueError {
     /// Dates cannot apply to one specific message.
     #[error("give either message_id or dates, not both")]
     MessageIdWithDates,
+    /// The value is not a single mail address.
+    #[error("{field} must be one email address, optionally as `Name <address>`. Give several as an array")]
+    MalformedAddress {
+        /// Name of the value that failed validation.
+        field: &'static str,
+    },
+    /// A message has too many recipients.
+    #[error("to, cc, and bcc must not exceed {limit} recipients in total")]
+    TooManyRecipients {
+        /// Maximum permitted recipients.
+        limit: usize,
+    },
+    /// A message has nothing to say.
+    #[error("at least one of text_body or html_body must be provided")]
+    NoMessageBody,
+    /// No template was identified.
+    #[error("one of template_id or template_alias must be provided")]
+    TemplateNotChosen,
+    /// Two templates were identified.
+    #[error("provide only one of template_id or template_alias")]
+    TemplateChosenTwice,
+    /// A batch is empty or too large.
+    #[error("a batch must have between 1 and {limit} messages")]
+    BatchSizeOutOfRange {
+        /// Maximum permitted messages.
+        limit: usize,
+    },
+    /// A recipient allowlist entry is unusable.
+    #[error("each entry must be an address such as name@example.com, or a domain such as @example.com")]
+    MalformedAllowlistEntry,
     /// No content was supplied to validate.
     #[error("at least one of subject, html_body, or text_body must be provided")]
     NothingToValidate,
@@ -305,6 +338,115 @@ impl TryFrom<String> for RecipientAddress {
 impl fmt::Display for RecipientAddress {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(formatter)
+    }
+}
+
+/// One mail address, as `address@example.com` or `Name <address@example.com>`.
+///
+/// The bare address is held apart, so a policy check sees where mail really goes.
+/// Commas and quotes are refused: either can make one string mean several
+/// recipients, or hide the real one from a check like this.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MailAddress {
+    full: String,
+    bare: String,
+}
+
+impl MailAddress {
+    /// The address mail is delivered to, without any display name.
+    #[must_use]
+    pub fn bare(&self) -> &str {
+        &self.bare
+    }
+}
+
+/// Characters with meaning in an address header. In a display name, each could
+/// lead a lenient parser to find a second address, or a different one, so they are
+/// refused rather than trusted to be read as a name.
+fn is_address_special(c: char) -> bool {
+    matches!(c, '@' | ':' | '(' | ')' | '[' | ']' | '\\' | '<' | '>')
+}
+
+/// Whether a domain is shaped like a hostname, such as `example.com`.
+fn is_domain(value: &str) -> bool {
+    value.contains('.')
+        && !value.starts_with(['.', '-'])
+        && !value.ends_with(['.', '-'])
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-'))
+}
+
+fn is_bare_address(value: &str) -> bool {
+    let shaped = value
+        .split_once('@')
+        .is_some_and(|(mailbox, domain)| !mailbox.is_empty() && !domain.is_empty() && !domain.contains('@'));
+    shaped && value.len() <= MAX_ADDRESS_LEN && !value.chars().any(|c| c.is_whitespace() || matches!(c, '<' | '>'))
+}
+
+impl TryFrom<(&'static str, String)> for MailAddress {
+    type Error = ValueError;
+
+    fn try_from((field, value): (&'static str, String)) -> Result<Self, Self::Error> {
+        let trimmed = value.trim();
+        let unsafe_character = |c: char| c.is_control() || matches!(c, ',' | ';' | '"');
+        if trimmed.chars().any(unsafe_character) {
+            return Err(ValueError::MalformedAddress { field });
+        }
+        let bare = match trimmed.strip_suffix('>').map(|rest| rest.split_once('<')) {
+            None => trimmed,
+            Some(Some((name, address))) if !name.chars().any(is_address_special) => address,
+            Some(_) => return Err(ValueError::MalformedAddress { field }),
+        };
+        if !is_bare_address(bare) {
+            return Err(ValueError::MalformedAddress { field });
+        }
+        Ok(Self {
+            bare: bare.to_owned(),
+            full: trimmed.to_owned(),
+        })
+    }
+}
+
+impl fmt::Display for MailAddress {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.full)
+    }
+}
+
+/// Where mail may be sent, when an operator restricts it.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecipientAllowlist {
+    /// Lower-cased bare addresses.
+    addresses: Vec<String>,
+    /// Lower-cased domains, matched whole, so subdomains need their own entry.
+    domains: Vec<String>,
+}
+
+impl RecipientAllowlist {
+    /// Whether mail may be sent to this address.
+    #[must_use]
+    pub fn permits(&self, address: &MailAddress) -> bool {
+        let bare = address.bare().to_ascii_lowercase();
+        let domain = bare.rsplit_once('@').map_or("", |(_, domain)| domain);
+        self.addresses.contains(&bare) || self.domains.iter().any(|entry| entry == domain)
+    }
+}
+
+impl TryFrom<&str> for RecipientAllowlist {
+    type Error = ValueError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut addresses = Vec::new();
+        let mut domains = Vec::new();
+        for entry in value.split(',').map(|entry| entry.trim().to_ascii_lowercase()) {
+            match entry.strip_prefix('@') {
+                Some(domain) if is_domain(domain) => domains.push(domain.to_owned()),
+                None if is_bare_address(&entry) => addresses.push(entry),
+                _ => return Err(ValueError::MalformedAllowlistEntry),
+            }
+        }
+        Ok(Self { addresses, domains })
     }
 }
 

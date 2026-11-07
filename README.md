@@ -6,7 +6,7 @@ This is an independent project, not affiliated with ActiveCampaign or Postmark. 
 
 ## Status
 
-Early development. The server runs over stdio and offers twelve read-only tools covering templates, messages, bounces, suppressions, statistics, webhooks, and delivery diagnosis. It cannot send mail or change anything yet. See [`docs/mcp-tools.md`](docs/mcp-tools.md) for the tool catalogue, and [`docs/roadmap.md`](docs/roadmap.md) for what comes next.
+Early development. The server runs over stdio, supports MCP protocol revisions from 2024-11-05 to 2026-07-28, and offers sixteen tools: twelve read-only ones covering templates, messages, bounces, suppressions, statistics, webhooks, and delivery diagnosis, and four that send email. It cannot yet change templates, suppressions, bounces, or webhooks. See [`docs/mcp-tools.md`](docs/mcp-tools.md) for the tool catalogue, and [`docs/roadmap.md`](docs/roadmap.md) for what comes next.
 
 ## Installation
 
@@ -48,6 +48,8 @@ See [`docs/configuration.md`](docs/configuration.md) for every variable.
 
 ## Security
 
+- Sending can be switched off entirely with `POSTMARK_READ_ONLY`, or restricted to listed recipients with `POSTMARK_RECIPIENT_ALLOWLIST`.
+- A send that may or may not have gone out says so, rather than inviting a retry that could send twice.
 - The server token is sent only to the configured API origin, and redirects are always refused.
 - Every request has a timeout and a response size limit.
 - Tokens never appear in logs, errors, or tool results, including the API tokens Postmark returns in its own responses.

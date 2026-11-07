@@ -3,12 +3,13 @@
 
 use async_trait::async_trait;
 use postmark_mcp_core::{
-    BounceDump, BounceId, BounceList, BounceSearch, DeliveryStat, DeliveryStats, GatewayError, JsonObject,
-    MessageDetails, MessageList, MessageSearch, MessageStreamId, ReadsBounces, ReadsMessages, ReadsServer, ReadsStats,
-    ReadsSuppressions, ReadsTemplates, ReadsWebhooks, ResourceId, ServerSummary, StatsQuery, SuppressionList,
-    SuppressionQuery, Template, TemplateList, TemplateQuery, TemplateValidation, ValidationResult, WebhookList,
+    BatchItem, BatchOutcome, BounceDump, BounceId, BounceList, BounceSearch, DeliveryStat, DeliveryStats, GatewayError,
+    JsonObject, MessageDetails, MessageList, MessageSearch, MessageStreamId, OutboundEmail, ReadsBounces,
+    ReadsMessages, ReadsServer, ReadsStats, ReadsSuppressions, ReadsTemplates, ReadsWebhooks, ResourceId, SendReceipt,
+    SendsEmail, ServerSummary, StatsQuery, SuppressionList, SuppressionQuery, Template, TemplateList, TemplateQuery,
+    TemplateValidation, TemplatedEmail, ValidationResult, WebhookList,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::base_url::QueryParams;
 use crate::transport::HardenedTransport;
@@ -171,6 +172,37 @@ impl ReadsStats for PostmarkApi {
         let response: JsonObject = self.transport.get(stat_route(query.stat), &params).await?;
         Ok((query.stat, response).into())
     }
+}
+
+#[async_trait]
+impl SendsEmail for PostmarkApi {
+    async fn send_email(&self, email: &OutboundEmail) -> Result<SendReceipt, GatewayError> {
+        let item: BatchItem = self.transport.post(&["email"], email).await?;
+        item.try_into()
+    }
+
+    async fn send_templated_email(&self, email: &TemplatedEmail) -> Result<SendReceipt, GatewayError> {
+        let item: BatchItem = self.transport.post(&["email", "withTemplate"], email).await?;
+        item.try_into()
+    }
+
+    async fn send_batch(&self, emails: &[OutboundEmail]) -> Result<BatchOutcome, GatewayError> {
+        let items: Vec<BatchItem> = self.transport.post(&["email", "batch"], &emails).await?;
+        Ok((items, emails.iter().map(OutboundEmail::to).collect()).into())
+    }
+
+    async fn send_templated_batch(&self, emails: &[TemplatedEmail]) -> Result<BatchOutcome, GatewayError> {
+        let body = TemplatedBatch { messages: emails };
+        let items: Vec<BatchItem> = self.transport.post(&["email", "batchWithTemplates"], &body).await?;
+        Ok((items, emails.iter().map(TemplatedEmail::to).collect()).into())
+    }
+}
+
+/// Body of `POST /email/batchWithTemplates`.
+#[derive(Debug, Serialize)]
+struct TemplatedBatch<'a> {
+    #[serde(rename = "Messages")]
+    messages: &'a [TemplatedEmail],
 }
 
 #[async_trait]

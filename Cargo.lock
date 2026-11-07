@@ -1093,7 +1093,7 @@ checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
 name = "postmark-mcp"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "clap",
  "postmark-mcp-client",
@@ -1110,7 +1110,7 @@ dependencies = [
 
 [[package]]
 name = "postmark-mcp-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "postmark-mcp-core",
@@ -1125,7 +1125,7 @@ dependencies = [
 
 [[package]]
 name = "postmark-mcp-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "futures-util",
