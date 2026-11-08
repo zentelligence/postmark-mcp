@@ -15,12 +15,14 @@ Rust MCP server for the Postmark email API. Cargo workspace of library crates be
 | Targeted red/green test | `cargo test -p <crate> <test_name> -- --exact` |
 | Check configuration and token | `cargo run -p postmark-mcp -- --server-token-file <path> --default-sender <address> --default-message-stream outbound doctor` |
 | Regenerate licence report | `just licences` |
+| Launcher tests | `cargo test -p postmark-mcp-launcher` |
 
 ## Architecture in one screen
 
 - `postmark-mcp-core`: validated values, result types, capability ports (`ReadsTemplates` and so on, each beside its types), the composite `PostmarkGateway`, and `GatewayError`.
 - `postmark-mcp-client`: `HardenedTransport` (every request, and failure classification) and `PostmarkApi` (implements the ports, naming each route and its parameters).
 - `postmark-mcp`: configuration from flags with environment fallback (`config.rs`), the MCP server and its toolsets, `tools/*` routers, `schema.rs`, `ToolFailure`, and the binary.
+- `postmark-mcp-launcher`: the stable launcher, installer, updater, and uninstaller, built on `zentelligence/auto-updater`. Independent of the other crates, and never contacts Postmark.
 
 A tool call flows: rmcp, arguments in `tools/<area>.rs`, `TryFrom` to a validated query, a port, `PostmarkApi`, `HardenedTransport`, Postmark. A result type decodes from Postmark's `PascalCase` and serialises as `snake_case`, so one struct serves both ends. Failures return as `GatewayError` or `ValueError`, then `ToolFailure`, a tool result with `isError` set.
 
@@ -46,7 +48,9 @@ A tool call flows: rmcp, arguments in `tools/<area>.rs`, `TryFrom` to a validate
 
 ## Repository gotchas
 
-- The binary name is coupled to `env!("CARGO_BIN_EXE_postmark-mcp")` in `tests/stdio_transport.rs`.
+- The binary name is coupled to `env!("CARGO_BIN_EXE_postmark-mcp")` in `tests/stdio_transport.rs`, to `SERVER_NAME` in the launcher, and to `release.yml`.
+- `postmark-mcp --version` must end with the bare version, with no `v`: the updater reads its last word before activating a release.
+- The updater crates and `AUTO_UPDATER_REV` in `release.yml` are pinned to the same commit. Move them together.
 - The orphan rule shapes two conversions: `transport.rs` wraps `reqwest::Error` in `RequestFailure`, and tools wrap arguments in `WithDefaultStream`.
 - Result types need `#[skip_serializing_none]` above their derives. `schema.rs` removes nullability from schemas, so a `null` in a result would contradict the advertised schema.
 - A result type's top-level field cannot be called `code`, `message`, or `remediation`, because `fallible_output_schema_for` merges it with `ToolFailure`. `every_output_definition_is_used` and the type check in `success` catch this.

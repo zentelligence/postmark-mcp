@@ -26,6 +26,8 @@ An empty variable counts as unset, since hosts often template an `env` block and
 }
 ```
 
+If you installed with `postmark-mcp-launcher`, give the full path it printed, such as `/home/you/.local/bin/postmark-mcp`, as the `command`, since not every host searches your `PATH`. That path follows every update and rollback.
+
 ## Required
 
 | Flag | Variable | Description |

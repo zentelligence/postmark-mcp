@@ -31,6 +31,16 @@ Assume all tool parameters, API responses, and email content are untrusted. An a
 - Message bodies, and `Content` on bounce records, are not modelled. Returning them would need a deliberate decision.
 - `get_bounce_dump` is the one exception, by design: it returns the raw bounce, which can quote the original message. Its description warns callers, and it returns this only for one bounce on explicit request.
 
+## Releases and the launcher
+
+- A release is installed only after the updater verifies the manifest's Ed25519 signature against a key built into the launcher, then the archive's SHA-256, then that the server reports the manifest's version. Keys live in `product.rs`. Rotate by adding a key, never by replacing one, and never accept a key from the environment.
+- The private signing key exists only as the `RELEASE_SIGNING_KEY` secret. The release workflow writes it to an owner-only temporary file and deletes it after signing.
+- Every download starts at an HTTPS address, but the pinned updater follows redirects without refusing plain HTTP, so never claim HTTPS-only transfer: integrity rests on the signature and checksum. An empty or non-Unicode `POSTMARK_MCP_UPDATE_URL` or `POSTMARK_MCP_INSTALL_ROOT` is refused, rather than taken as unset or replaced by the default.
+- An update never replaces the files of the active release. Every change holds the update lock, apart from removing the lock file itself and the then empty folder. `update` asks before taking the lock, and refuses if the installation changed meanwhile. A pinned install that ends with another release active is a failure.
+- `POSTMARK_MCP_INSTALL_ROOT` can name any folder, so the launcher writes only to a folder that is missing, empty, or marked as an installation by `launchers.json`, `state.json`, or a `current` pointer, and removes only the entries an install creates.
+- Uninstall removes only what the ledger shows an install placed and still matches, and never the token file or a host's configuration. Anything it could not remove makes it fail.
+- At the pinned updater commit, an archive's declared size is not enforced and its download has no size limit. Integrity rests on the signed checksum.
+
 ## Logging
 
 - Runtime logs go to stderr. Stdout carries only MCP traffic.

@@ -10,11 +10,19 @@ Early development. The server runs over stdio, supports MCP protocol revisions f
 
 ## Installation
 
-Requires Rust 1.96 or later.
+Download the archive for your platform from [Releases](https://github.com/zentelligence/postmark-mcp/releases), unpack it, and from the unpacked folder run:
+
+```sh
+./bin/postmark-mcp-launcher install
+```
+
+On Windows, run `bin\postmark-mcp-launcher.exe install`. This puts `postmark-mcp` on your `PATH`, and `postmark-mcp-launcher update` and `postmark-mcp-launcher uninstall` later update and remove it. To build from source instead, with Rust 1.96 or later:
 
 ```sh
 cargo install --path crates/postmark-mcp
 ```
+
+See [`docs/installation.md`](docs/installation.md) for details.
 
 ## Quick start
 
@@ -53,6 +61,7 @@ Every setting is a flag, with an environment variable fallback where a host can 
 - Every request has a timeout and a response size limit.
 - Tokens never appear in logs, errors, or tool results, including the API tokens Postmark returns in its own responses.
 - Webhook passwords and custom headers never reach a tool result, and credentials, query strings, and fragments are removed from webhook URLs. A secret in a URL's path cannot be detected, and is not removed.
+- Releases are installed only after their signed manifest and checksum are verified, and an update never replaces a running server's files.
 - Message bodies and clicked link URLs are not returned. The exception is `get_bounce_dump`, which returns a bounce's raw source, and that can quote the original message.
 
 ## Architecture
@@ -62,6 +71,7 @@ Every setting is a flag, with an environment variable fallback where a host can 
 | `postmark-mcp-core` | Validated values, result types, and ports. No adapter dependencies. |
 | `postmark-mcp-client` | Hardened HTTP transport, and the port implementations. |
 | `postmark-mcp` | Configuration, the MCP server, the tool catalogue, and the binary. |
+| `postmark-mcp-launcher` | Starts the active release, and installs, updates, and removes it. Never contacts Postmark. |
 
 ## Contributing
 

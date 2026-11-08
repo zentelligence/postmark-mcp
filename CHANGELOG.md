@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-08
+
+### Added
+
+- `postmark-mcp-launcher`, which installs, updates, rolls back, and removes the server, built on `zentelligence/auto-updater`. It keeps each release in its own folder, verifies a signed manifest and checksum before activating one, and goes on `PATH` as `postmark-mcp`, so an MCP host's entry follows every update. `update check`, `update cleanup`, and `update diagnostics` report on and tidy the installation.
+- Release archives now hold `bin/postmark-mcp`, `bin/postmark-mcp-launcher`, and `release.json`, with a signed `latest.json`. Each release is installed on every platform before it becomes the latest.
+
+### Changed
+
+- `postmark-mcp --version` prints the bare version, such as `postmark-mcp 0.6.0`, without a `v`, as the updater requires.
+
 ## [0.5.0] - 2026-11-07
 
 ### Added

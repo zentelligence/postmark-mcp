@@ -10,6 +10,8 @@ The goal is parity with the 24 tools of the official `postmark-mcp` server, deli
 - **Stage 3, sending.** The four send tools, a read-only mode, a recipient allowlist, and tool call logging with address masking.
 - **Stage 4, managing.** The eight tools that change templates, suppressions, bounces, and webhooks, completing the official server's 24. With it, every setting became a command-line flag, with environment variables as a fallback, and `--toolsets` replaced the read-only switch.
 
+- **Distribution.** `postmark-mcp-launcher` installs, updates, rolls back, and removes the server as versioned release sets, on `zentelligence/auto-updater`. Releases are signed, installed on every platform before they become the latest, and started through a stable launcher on `PATH`, so an MCP host's entry survives every update.
+
 ## Planned
 
 - **Stage 5, beyond parity.** Candidates only: the asynchronous bulk API, account-level tools (domains, sender signatures) using `POSTMARK_ACCOUNT_TOKEN`, and streamable HTTP, which would need authentication.
@@ -26,6 +28,7 @@ The goal is parity with the 24 tools of the official `postmark-mcp` server, deli
 - **Toolsets.** `--toolsets` chooses among `read`, `send`, and `manage`, all on by default to match the official server. Deleting and overwriting are not a separate group: they are annotated destructive, and a host's tool permissions can deny any single tool.
 - **Recipient allowlist.** `--recipient-allowlist` restricts recipients, for staging, internal-only, and demonstration deployments only.
 - **Tracking.** This server never sets open or link tracking, so each Postmark server's settings decide, unlike the official server, which always turns both on.
+- **One launcher, no automatic updates.** Installing, updating, and removing belong to `postmark-mcp-launcher`, not to the server, which stays free of updater code. Updates happen only when asked for, since a server an MCP host has running cannot be switched under it.
 - **No automatic retries.** Postmark's documentation says nothing about idempotency, so a send that may have reached it is reported as `send/outcome-unknown`, never retried.
 
 ## Verified live
@@ -53,6 +56,8 @@ At version 0.5.0, a throwaway layout and template were taken through their whole
 
 ## Verification still owed
 
+The launcher's first real install, update, and uninstall happen in the release workflow's `verify-install` job, which needs `RELEASE_SIGNING_KEY` set. Until a release has passed it, these remain unconfirmed: the signed manifest and archives, adding to `PATH` on each platform, an update replacing a running launcher on Windows, and `update` and `rollback` between two published releases.
+
 The live server had no templates, no webhooks, and only single-recipient messages, so these remain unconfirmed:
 
 - `send_batch` and `send_batch_with_template`.
@@ -68,5 +73,5 @@ The live server had no templates, no webhooks, and only single-recipient message
 
 ## Open decisions
 
-- **Guardrails for automated sending.** Candidates that limit what an automated run can do without a person approving each send: a mode allowing only template sends, so an agent can fill in a template but not write free text; a cap on recipients per call or per run; and a `message_stream` argument, so sequences can use a broadcast stream rather than `DEFAULT_MESSAGE_STREAM`. 
+- **Guardrails for automated sending.** Candidates that limit what an automated run can do without a person approving each send: a mode allowing only template sends, so an agent can fill in a template but not write free text; a cap on recipients per call or per run; and a `message_stream` argument, so sequences can use a broadcast stream rather than `DEFAULT_MESSAGE_STREAM`.
 

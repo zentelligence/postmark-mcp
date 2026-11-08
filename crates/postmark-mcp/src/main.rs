@@ -15,11 +15,7 @@ use rmcp::transport::stdio;
 use tracing::level_filters::LevelFilter;
 
 #[derive(Parser)]
-#[command(
-    name = "postmark-mcp",
-    version = concat!("v", env!("CARGO_PKG_VERSION")),
-    about = "MCP server for the Postmark email API"
-)]
+#[command(name = "postmark-mcp", version, about = "MCP server for the Postmark email API")]
 struct Cli {
     /// Diagnostic log level. Logs go to stderr; stdout carries only MCP traffic.
     #[arg(long, value_enum, default_value_t = LogLevel::Info, global = true)]

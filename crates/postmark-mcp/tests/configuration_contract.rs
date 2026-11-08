@@ -392,7 +392,20 @@ async fn help_and_version_still_print() -> TestResult {
     assert!(help.status.success());
     assert!(String::from_utf8_lossy(&help.stdout).contains("--toolsets"));
     assert!(version.status.success());
-    assert!(String::from_utf8_lossy(&version.stdout).contains(env!("CARGO_PKG_VERSION")));
+    Ok(())
+}
+
+// The updater checks every program in a release by running it with `--version`
+// and reading the last word as the version, which must be bare, with no `v`.
+#[tokio::test]
+async fn version_ends_with_the_bare_version_the_updater_reads() -> TestResult {
+    let version = binary(&["--version"]).output().await?;
+
+    assert!(version.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&version.stdout),
+        format!("postmark-mcp {}\n", env!("CARGO_PKG_VERSION"))
+    );
     Ok(())
 }
 

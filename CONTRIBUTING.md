@@ -51,4 +51,4 @@ By submitting a contribution, you agree that it is licensed under the terms in [
 
 ## Getting help
 
-For questions about the contribution process, open an issue or contact [support@zentelligence.com.au](mailto:support@zentelligence.com.au).
+For questions about the contribution process, open an issue.

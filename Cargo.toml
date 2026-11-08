@@ -3,11 +3,12 @@ members = [
     "crates/postmark-mcp",
     "crates/postmark-mcp-client",
     "crates/postmark-mcp-core",
+    "crates/postmark-mcp-launcher",
 ]
 resolver = "3"
 
 [workspace.package]
-version = "0.5.0"
+version = "0.6.0"
 edition = "2024"
 rust-version = "1.96"
 authors = ["Zentelligence Pty Ltd"]
@@ -17,6 +18,8 @@ publish = false
 [workspace.dependencies]
 async-trait = "0.1"
 clap = { version = "4.6.2", features = ["derive"] }
+ed25519-dalek = "3.0.0"
+flate2 = "1.1.10"
 futures-util = { version = "0.3", default-features = false }
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
 # Pinned exactly: the SDK defines the public MCP protocol surface, and any move
@@ -28,10 +31,24 @@ secrecy = "0.10.3"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = { version = "1.0.149", features = ["preserve_order"] }
 serde_with = { version = "3.24.0", default-features = false, features = ["macros"] }
+sha2 = "0.11.0"
+tar = "0.4.46"
+tempfile = "3.27.0"
 thiserror = "2.0.18"
 tokio = { version = "1.53.0", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+# The self-update client: `postmark-mcp-launcher` resolves the active release,
+# and installs, updates, and removes it, through these crates. Pinned to one
+# commit of the public `zentelligence/auto-updater` repository, so every
+# machine and CI build the same updater. The release workflow builds
+# `updater-keytool` from the same commit, so move both together. To work on the
+# updater alongside this workspace, override these in an untracked
+# `[patch."https://github.com/zentelligence/auto-updater.git"]` table rather
+# than editing them here.
+updater-core = { git = "https://github.com/zentelligence/auto-updater.git", rev = "d01d5a1e944e60f9fdf3660dbc9ac03c823fa54b" }
+updater-engine = { git = "https://github.com/zentelligence/auto-updater.git", rev = "d01d5a1e944e60f9fdf3660dbc9ac03c823fa54b" }
+updater-launcher = { git = "https://github.com/zentelligence/auto-updater.git", rev = "d01d5a1e944e60f9fdf3660dbc9ac03c823fa54b" }
 url = "2.5.8"
 wiremock = "0.6.5"
 

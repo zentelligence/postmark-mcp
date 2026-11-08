@@ -1,0 +1,31 @@
+[package]
+name = "postmark-mcp-launcher"
+description = "Stable launcher: starts the active postmark-mcp release, and installs, updates, and removes it"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "postmark-mcp-launcher"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+thiserror.workspace = true
+updater-core.workspace = true
+updater-engine.workspace = true
+updater-launcher.workspace = true
+
+[dev-dependencies]
+ed25519-dalek.workspace = true
+flate2.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tar.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true
