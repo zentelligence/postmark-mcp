@@ -1,6 +1,6 @@
 name: Release
 
-# Pushing a version tag (vMAJOR.MINOR.PATCH, matching workspace.package's
+# Pushing a version tag (MAJOR.MINOR.PATCH, with no `v`, matching workspace.package's
 # `version`) builds `postmark-mcp` and `postmark-mcp-launcher` natively on
 # Linux, Windows, and Apple Silicon macOS, packages each platform's release set
 # (`bin/` holding both, plus `release.json`) as one checksummed archive, signs
@@ -25,7 +25,7 @@ name: Release
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch: {}
 
 # Read-only by default. Only the jobs that create and promote the release can
@@ -73,7 +73,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tag_version="${GITHUB_REF_NAME#v}"
+          tag_version="${GITHUB_REF_NAME}"
           cargo_version="$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')"
           if [ "${tag_version}" != "${cargo_version}" ]; then
             echo "::error::Tag ${GITHUB_REF_NAME} does not match workspace version ${cargo_version} in Cargo.toml"
@@ -182,7 +182,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
+          version="${GITHUB_REF_NAME}"
           base_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
           declare -A target_archive=(
             ["x86_64-unknown-linux-gnu"]="tar.gz"
@@ -304,7 +304,7 @@ jobs:
           POSTMARK_MCP_INSTALL_ROOT: ${{ runner.temp }}/install-root
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
+          version="${GITHUB_REF_NAME}"
           suffix="${{ matrix.suffix }}"
           work="${RUNNER_TEMP}/verify"
           mkdir -p "${work}/unpacked"

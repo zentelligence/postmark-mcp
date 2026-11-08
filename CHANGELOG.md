@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Changed
 
 - `postmark-mcp --version` prints the bare version, such as `postmark-mcp 0.6.0`, without a `v`, as the updater requires.
+- Release tags are the bare version, such as `0.6.0`, with no `v`.
 
 ## [0.5.0] - 2026-11-07
 
