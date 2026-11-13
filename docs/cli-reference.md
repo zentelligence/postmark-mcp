@@ -29,7 +29,7 @@ Installs, updates, and removes the server. It is also placed on your `PATH` as `
 
 | Command | Description |
 | --- | --- |
-| `install [--version <version>]` | Installs the current release and puts the commands on your `PATH`. `--version` must name the current release, such as `0.6.0`, and installs it even over a newer one. Running it again sets the commands up again without reinstalling, and keeps a newer installed release. |
+| `install [--version <version>]` | Installs the current release and puts the commands on your `PATH`. `--version` must name the current release, such as `0.6.1`, and installs it even over a newer one. Running it again sets the commands up again without reinstalling, and keeps a newer installed release. |
 | `update [--yes]` | Installs a newer release, if there is one, asking first unless given `--yes`, and replaces the launcher's copies with the new release's. |
 | `update check` | Reports whether a newer release is available, changing nothing. |
 | `update cleanup` | Deletes releases other than the active one and the one before it, keeping any still in use. |

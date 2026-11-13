@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-13
+
 ### Fixed
 
 - A client that closes the connection without using the server, either at once or after only `server/discover`, now ends it with status 0 and an INFO line, rather than `ERROR connection closed: initialize request` and status 1. Hosts such as contextos-web start every configured server and close those a session did not use, so this was reported as a failure on every run.
