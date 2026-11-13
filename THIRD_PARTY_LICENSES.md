@@ -5501,10 +5501,10 @@ Used by:
 - `updater-core` 0.1.0
 - `updater-engine` 0.1.0
 - `updater-launcher` 0.1.0
-- `postmark-mcp` 0.6.1
-- `postmark-mcp-client` 0.6.1
-- `postmark-mcp-core` 0.6.1
-- `postmark-mcp-launcher` 0.6.1
+- `postmark-mcp` 0.6.2
+- `postmark-mcp-client` 0.6.2
+- `postmark-mcp-core` 0.6.2
+- `postmark-mcp-launcher` 0.6.2
 - `android_system_properties` 0.1.6
 - `async-trait` 0.1.92
 - `aws-lc-sys` 0.47.0

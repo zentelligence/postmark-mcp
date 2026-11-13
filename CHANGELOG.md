@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-13
+
 ### Changed
 
 - `rmcp` 3.10.0, from 3.9.0. Protocol revisions are unchanged: 2026-07-28 through `server/discover`, and 2024-11-05 to 2025-11-25 through `initialize`. The release adds an optional skills feature this server does not enable, fixes header annotations on HTTP transports, and clarifies documentation, so the tool catalogue and stdio behaviour are unchanged.

@@ -22,7 +22,7 @@ Then [configure the server](configuration.md), check it with `postmark-mcp docto
 
 ### For automation
 
-`--version` installs an exact release, such as `postmark-mcp-launcher install --version 0.6.1`, and fails unless it is the current release, so a pipeline cannot silently install something else. If a newer release is published while it installs, the newer one ends up active and `install` fails, saying so. It also installs the current release over a newer one, which plain `install` never does.
+`--version` installs an exact release, such as `postmark-mcp-launcher install --version 0.6.2`, and fails unless it is the current release, so a pipeline cannot silently install something else. If a newer release is published while it installs, the newer one ends up active and `install` fails, saying so. It also installs the current release over a newer one, which plain `install` never does.
 
 | Variable | Effect |
 | --- | --- |
