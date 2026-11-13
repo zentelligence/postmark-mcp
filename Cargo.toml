@@ -25,7 +25,7 @@ reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] 
 # Pinned exactly: the SDK defines the public MCP protocol surface, and any move
 # needs a deliberate review against the MCP specification and compatibility
 # tests. See `.claude/rules/mcp-contracts.md`.
-rmcp = { version = "=3.9.0", default-features = false, features = ["macros", "server", "transport-io"] }
+rmcp = { version = "=3.10.0", default-features = false, features = ["macros", "server", "transport-io"] }
 schemars = "1.2.3"
 secrecy = "0.10.3"
 serde = { version = "1.0.228", features = ["derive"] }

@@ -5528,8 +5528,8 @@ Used by:
 - `r-efi` 6.0.0
 - `ref-cast-impl` 1.0.27
 - `ref-cast` 1.0.27
-- `rmcp-macros` 3.9.0
-- `rmcp` 3.9.0
+- `rmcp-macros` 3.10.0
+- `rmcp` 3.10.0
 - `rustls-platform-verifier-android` 0.2.0
 - `rustversion` 1.0.23
 - `semver` 1.0.28

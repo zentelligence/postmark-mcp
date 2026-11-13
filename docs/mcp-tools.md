@@ -1,6 +1,6 @@
 # MCP Tools
 
-Tools are named in `snake_case`, as the direct translation of the official server's names. The server speaks MCP over stdio, using `rmcp` 3.9.0. It supports protocol revision 2026-07-28, where a client starts with `server/discover`, and every earlier revision from 2024-11-05, where it starts with `initialize`. Tests prove each one through the real binary.
+Tools are named in `snake_case`, as the direct translation of the official server's names. The server speaks MCP over stdio, using `rmcp` 3.10.0. It supports protocol revision 2026-07-28, where a client starts with `server/discover`, and every earlier revision from 2024-11-05, where it starts with `initialize`. Tests prove each one through the real binary.
 
 ## Results and errors
 
