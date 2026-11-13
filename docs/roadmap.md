@@ -29,6 +29,7 @@ The goal is parity with the 24 tools of the official `postmark-mcp` server, deli
 - **Recipient allowlist.** `--recipient-allowlist` restricts recipients, for staging, internal-only, and demonstration deployments only.
 - **Tracking.** This server never sets open or link tracking, so each Postmark server's settings decide, unlike the official server, which always turns both on.
 - **One launcher, no automatic updates.** Installing, updating, and removing belong to `postmark-mcp-launcher`, not to the server, which stays free of updater code. Updates happen only when asked for, since a server an MCP host has running cannot be switched under it.
+- **Closing unused is not a failure.** A client that closes the connection before choosing a lifecycle ends the server with status 0, as closing after use does, and as the official server does on shutdown. Hosts such as contextos-web start every configured server and close those a session did not use.
 - **No automatic retries.** Postmark's documentation says nothing about idempotency, so a send that may have reached it is reported as `send/outcome-unknown`, never retried.
 
 ## Verified live

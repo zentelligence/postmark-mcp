@@ -11,6 +11,7 @@ use postmark_mcp::{Config, Environment, PostmarkMcpServer, ServerDefaults, Serve
 use postmark_mcp_client::{HardenedTransport, PostmarkApi, TransportConfig};
 use postmark_mcp_core::{GatewayError, ReadsServer, ServerSummary};
 use rmcp::ServiceExt;
+use rmcp::service::ServerInitializeError;
 use rmcp::transport::stdio;
 use tracing::level_filters::LevelFilter;
 
@@ -197,7 +198,19 @@ async fn serve(api: Arc<PostmarkApi>, config: &Config) -> Result<(), Box<dyn Err
     let server = PostmarkMcpServer::new(api, ServerDefaults::from(config))
         .with_policy(ServerPolicy::from(config))
         .with_tool_log(log);
-    server.serve(stdio()).await?.waiting().await?;
+    let running = match server.serve(stdio()).await {
+        Ok(running) => running,
+        // Input ended before the client chose a lifecycle, either at once or
+        // after only `server/discover`, which does not choose one. Hosts that
+        // start every configured server and close those a session never used do
+        // exactly this, so it is a normal shutdown, as closing after use is.
+        Err(ServerInitializeError::ConnectionClosed(_)) => {
+            tracing::info!("the client closed the connection without using the server");
+            return Ok(());
+        }
+        Err(error) => return Err(error.into()),
+    };
+    running.waiting().await?;
     Ok(())
 }
 

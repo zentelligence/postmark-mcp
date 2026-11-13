@@ -111,3 +111,5 @@ Keep `--log-level` at `info` in production: at `debug` and below, the MCP SDK lo
 ## Startup checks
 
 The server validates every setting, then calls Postmark to confirm the token, and exits with a non-zero status and an explanation on stderr if either fails. Each error names both the flag and the variable, and never repeats a token. `postmark-mcp doctor` runs the same checks without serving.
+
+The server exits with status 0 when the client closes the connection, including when it closes without using the server, either at once or after only `server/discover`. Some hosts start every configured server and close those a session did not use, so this is a normal shutdown, logged at INFO.

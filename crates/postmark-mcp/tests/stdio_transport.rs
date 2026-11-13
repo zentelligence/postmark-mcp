@@ -242,3 +242,56 @@ async fn still_serves_every_earlier_revision_over_initialize() -> TestResult {
     }
     Ok(())
 }
+
+/// Asserts the server ended cleanly: hosts such as contextos-web start every
+/// configured server and close the ones a session never used, so ending input
+/// before using the server is a normal shutdown, not a failure.
+fn assert_quiet_shutdown(output: &Output) {
+    assert!(output.status.success(), "{}", stderr(output));
+    assert!(!stderr(output).contains("ERROR"), "{}", stderr(output));
+    assert!(!stderr(output).contains(TOKEN));
+}
+
+#[tokio::test]
+async fn ends_cleanly_when_the_client_closes_without_sending_anything() -> TestResult {
+    let postmark = healthy_postmark().await;
+
+    // An empty stdin, as a host closing an unused server leaves it. Set
+    // explicitly, because `output` otherwise inherits the test's own stdin.
+    let output = binary(&postmark.uri())
+        .stdin(std::process::Stdio::null())
+        .output()
+        .await?;
+
+    assert_quiet_shutdown(&output);
+    assert!(stdout(&output).is_empty(), "stdout is reserved for MCP traffic");
+    Ok(())
+}
+
+#[tokio::test]
+async fn ends_cleanly_when_the_client_closes_after_discovery_alone() -> TestResult {
+    let postmark = healthy_postmark().await;
+    let mut child = binary(&postmark.uri())
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()?;
+    let stdin = child.stdin.take().ok_or("no stdin")?;
+    let stdout = child.stdout.take().ok_or("no stdout")?;
+
+    // The 2026-07-28 lifecycle probes with `server/discover`, which does not
+    // commit the server to a lifecycle, so closing here ends the handshake.
+    let client = PlainClient
+        .serve_with_lifecycle(
+            (stdout, stdin),
+            ClientLifecycleMode::Discover {
+                preferred_versions: vec![ProtocolVersion::V_2026_07_28],
+            },
+        )
+        .await?;
+    assert!(client.peer_info().is_some(), "server answered discovery");
+    client.cancel().await?;
+
+    assert_quiet_shutdown(&child.wait_with_output().await?);
+    Ok(())
+}
